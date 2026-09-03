@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model GenerationJob {
+  id              String   @id
+  provider        String
+  model           String
+  status          String
+  promptVersion   String
+  inputHash       String
+  estimatedCost   Float
+  actualCost      Float    @default(0)
+  retryCount      Int      @default(0)
+  outputAssetIds  String[]
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  updatedAt       DateTime @updatedAt
+}
+
+model ContinuityFact {
+  id                String   @id
+  seriesId          String
+  subjectType       String
+  subjectId         String
+  key               String
+  value             String
+  validFromEpisode  Int
+  validFromScene    Int?
+  validFromShot     Int?
+  validToEpisode    Int?
+  validToScene      Int?
+  validToShot       Int?
+  source            String
+  confidence        Float
+  override          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([seriesId, subjectType, subjectId, key])
+  @@index([seriesId, validFromEpisode, validToEpisode])
+}
