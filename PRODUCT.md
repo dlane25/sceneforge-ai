@@ -67,6 +67,20 @@ Command-center interface:
 - Generation job monitoring
 - Memory and fact browser
 
+### 8. AI Production Pipeline
+
+Milestone 2 adds a staged command-center workflow for each episode:
+
+1. Showrunner expands the series concept into production intelligence.
+2. Writer creates a 60-90 second structured screenplay using Series Memory.
+3. Director creates a portrait-first 9:16 shot plan.
+4. Continuity checks the screenplay and shots without changing canon.
+5. Drama Scoring quantifies hook, conflict, emotion, cliffhanger, continuity, pacing, and overall score.
+6. A human approves or requests revision.
+7. Only an approved pipeline can queue a mock generation job.
+
+Agent activity is recorded as an audit trail with concise explanations and confidence values.
+
 ## Workflow
 
 ```
@@ -180,7 +194,7 @@ Potential revenue streams:
 
 ## Roadmap
 
-### Milestone 1 (Current)
+### Milestone 1
 ✓ Foundation and architecture
 ✓ Type system
 ✓ Series Memory
@@ -189,12 +203,14 @@ Potential revenue streams:
 ✓ Mock providers
 ✓ UI dashboard
 
-### Milestone 2
-- AI agent system (Showrunner, Writer, Director, etc.)
-- Real video APIs (Veo as primary)
-- Database schema and migrations
-- Authentication and user accounts
-- Creator and series management
+### Milestone 2 (Current)
+✓ Deterministic Showrunner, Writer, Director, Continuity, and Scoring agents
+✓ Typed orchestration state machine and execution audit history
+✓ Human approval and rejection gate before mock generation
+✓ API routes and pipeline UI
+✓ Prisma models for agent executions, pipeline runs, and approvals
+
+The next milestone can replace deterministic agents with Gemini/Vertex AI adapters without changing domain contracts.
 
 ### Milestone 3
 - Advanced story generation

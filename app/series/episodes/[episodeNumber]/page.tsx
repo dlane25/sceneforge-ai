@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft, Clapperboard, Film, ShieldCheck } from 'lucide-react';
 import { MainLayout } from '@/components/layout/main-layout';
+import { ProductionPipeline } from '@/components/studio/production-pipeline';
 import { createEmpireOfLiesEpisodes } from '@/lib/mock';
 import { calculateDramaScores } from '@/lib/ai/drama-scorer';
 
@@ -20,6 +21,7 @@ export default async function EpisodeDetailPage({ params }: { params: Promise<{ 
       <section className="border border-stone-800 bg-stone-900 p-6"><h3 className="text-lg font-semibold">Score breakdown</h3><div className="mt-4 space-y-4">{[['Hook Strength', score.hookStrength], ['Conflict', score.conflict], ['Emotional Intensity', score.emotionalIntensity], ['Cliffhanger', score.cliffhanger], ['Character Continuity', score.characterContinuity]].map(([label, value]) => <div key={label as string}><div className="flex justify-between text-sm"><span className="text-stone-400">{label}</span><span>{value}</span></div><div className="mt-2 h-1 bg-stone-800"><div className="h-1 bg-amber-500" style={{ width: `${value}%` }} /></div></div>)}</div></section>
     </div>
     <section className="mt-6 border border-stone-800 bg-stone-900 p-6"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">Storyboard</h3><span className="text-xs text-stone-500">No shots generated</span></div><div className="mt-5 grid gap-4 md:grid-cols-3"><Placeholder icon={<Clapperboard size={20} />} label="Shot list" /><Placeholder icon={<Film size={20} />} label="Vertical preview" /><Placeholder icon={<ShieldCheck size={20} />} label="Continuity review" /></div></section>
+    <ProductionPipeline episodeId={episode.id} />
   </div></MainLayout>;
 }
 

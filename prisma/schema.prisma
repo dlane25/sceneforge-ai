@@ -47,3 +47,50 @@ model ContinuityFact {
   @@index([seriesId, subjectType, subjectId, key])
   @@index([seriesId, validFromEpisode, validToEpisode])
 }
+
+model AgentExecution {
+  id          String   @id
+  agent       String
+  seriesId    String
+  episodeId   String?
+  input       Json
+  output      Json?
+  status      String
+  confidence  Float?
+  explanation String?
+  timestamp   DateTime
+  durationMs  Int
+  errors      Json
+  metadata    Json
+  createdAt   DateTime @default(now())
+
+  @@index([seriesId, episodeId, timestamp])
+}
+
+model PipelineRun {
+  id              String   @id
+  seriesId        String
+  episodeId       String
+  state           String
+  output          Json?
+  generationJobId String?
+  error           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([seriesId, episodeId, state])
+}
+
+model ApprovalDecision {
+  id              String   @id
+  pipelineId      String
+  status          String
+  requestedAction String
+  summary         String
+  projectedImpact String
+  requestedAt     DateTime
+  decisionAt      DateTime?
+  decisionNote    String?
+
+  @@index([pipelineId, status])
+}
