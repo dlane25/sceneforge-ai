@@ -31,12 +31,16 @@ components/
 
 lib/
   agents/                      # AI agents system
+    types.ts                   # Shared agent contracts and production outputs
+    base.ts                    # Deterministic execution helper
     showrunner/                # Showrunner agent
     writer/                    # Writer agent
     director/                  # Director agent
     continuity/                # Continuity agent
     editor/                    # Editor agent
     growth/                    # Growth agent
+
+  orchestration/               # Typed multi-agent pipeline and approval gate
   
   ai/
     providers/                 # AI provider abstractions
@@ -205,3 +209,15 @@ This milestone establishes the foundation:
 - Database schema and migrations
 - Authentication and user management
 - Production deployment infrastructure
+
+## Milestone 2 AI Orchestration
+
+The production pipeline is explicit and auditable:
+
+`Series Concept -> Showrunner -> Writer -> Director -> Continuity -> Drama Scoring -> Human Approval -> Mock Generation`
+
+Each agent implements `Agent<TInput, TOutput>`. `AgentExecution` records the agent identity, series and episode, input/output, status, confidence, concise explanation, duration, metadata, and structured errors. Explanations are audit summaries only; private chain-of-thought is never stored.
+
+`OrchestrationService` owns the pipeline state machine: `DRAFT`, `ANALYZING`, `CONTINUITY_REVIEW`, `READY_FOR_APPROVAL`, `APPROVED`, `REJECTED`, `GENERATION_QUEUED`, and `FAILED`. It will not create a GenerationJob until an `ApprovalDecision` is approved.
+
+The current agents are deterministic implementations. A future Gemini or Vertex AI adapter can implement the same `Agent` interface and return the same domain output schemas. Model selection, credentials, retries, and transport belong in the adapter, not in the Writer, Director, Continuity, or orchestration contracts.
