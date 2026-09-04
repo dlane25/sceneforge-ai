@@ -4,7 +4,7 @@
 
  ## Current Milestone
 
- Milestone 2 adds deterministic AI orchestration on top of the foundation. The fictional **Empire of Lies** demo now runs through Showrunner, Writer, Director, Continuity, Drama Scoring, human approval, and mock generation.
+ Milestone 3 adds persistent production state and authentication/authorization boundaries on top of the deterministic AI orchestration. The fictional **Empire of Lies** demo runs through Showrunner, Writer, Director, Continuity, Drama Scoring, human approval, and mock generation.
 
  - 60 planned episodes, 60-90 seconds each, vertical 9:16
  - 4 characters, 3 locations, and 5 outlined episodes
@@ -14,6 +14,8 @@
  - Dashboard, series bible, characters, episodes, memory, continuity, and studio views
 
  This milestone does not call paid AI, video, voice, or cloud APIs. All agent implementations are deterministic fixtures behind replaceable interfaces.
+
+ Persistence is PostgreSQL-ready through Prisma. Without `DATABASE_URL`, the app and tests use deterministic in-memory repositories; with `DATABASE_URL`, the runtime selects the Prisma repository. See [docs/PERSISTENCE_AND_AUTH.md](docs/PERSISTENCE_AND_AUTH.md).
 
  ## Run Locally
 

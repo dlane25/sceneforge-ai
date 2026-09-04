@@ -19,6 +19,7 @@ export interface PipelineRun {
   id: string;
   seriesId: string;
   episodeId: string;
+  initiatedById: string;
   state: PipelineState;
   showrunner?: ShowrunnerOutput;
   screenplay?: Screenplay;

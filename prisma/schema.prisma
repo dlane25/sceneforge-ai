@@ -7,90 +7,342 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model GenerationJob {
-  id              String   @id
-  provider        String
-  model           String
-  status          String
-  promptVersion   String
-  inputHash       String
-  estimatedCost   Float
-  actualCost      Float    @default(0)
-  retryCount      Int      @default(0)
-  outputAssetIds  String[]
-  errorMessage    String?
-  createdAt       DateTime @default(now())
-  startedAt       DateTime?
-  completedAt     DateTime?
-  updatedAt       DateTime @updatedAt
+enum UserRole {
+  OWNER
+  EDITOR
+  VIEWER
 }
 
-model ContinuityFact {
-  id                String   @id
-  seriesId          String
-  subjectType       String
-  subjectId         String
-  key               String
-  value             String
-  validFromEpisode  Int
-  validFromScene    Int?
-  validFromShot     Int?
-  validToEpisode    Int?
-  validToScene      Int?
-  validToShot       Int?
-  source            String
-  confidence        Float
-  override          Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+enum PipelineState {
+  DRAFT
+  ANALYZING
+  CONTINUITY_REVIEW
+  READY_FOR_APPROVAL
+  APPROVED
+  REJECTED
+  GENERATION_QUEUED
+  FAILED
+}
+
+enum AgentExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+enum GenerationJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id          String                @id
+  email       String                @unique
+  displayName String
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  memberships ProductionMembership[]
+  pipelines   PipelineRun[]
+  ownedSeries Series[]
+}
+
+model Series {
+  id               String                @id
+  title            String
+  logline          String
+  genre            String
+  targetAudience   String
+  visualStyle      String
+  episodeCount     Int
+  episodeDurationSeconds Int
+  status           String
+  ownerId          String
+  owner            User                  @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships      ProductionMembership[]
+  characters       Character[]
+  locations        Location[]
+  episodes         Episode[]
+  memoryFacts      SeriesMemoryFact[]
+  storyEvents      StoryEvent[]
+  pipelines        PipelineRun[]
+  generationJobs   GenerationJob[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([ownerId, updatedAt])
+}
+
+model ProductionMembership {
+  id        String   @id
+  userId    String
+  seriesId  String
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seriesId])
+  @@index([seriesId, role])
+}
+
+model Character {
+  id               String   @id
+  seriesId         String
+  name             String
+  role             String
+  age              Int
+  appearance       String
+  wardrobe         String
+  personality      String
+  relationships    Json
+  voiceProfile     Json
+  continuityNotes  String[]
+  series           Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([seriesId, name])
+}
+
+model Location {
+  id          String   @id
+  seriesId    String
+  name        String
+  description String
+  roomDetails String?
+  lighting    String?
+  visualStyle String?
+  props       Json
+  series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  scenes      Scene[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([seriesId, name])
+}
+
+model Episode {
+  id          String         @id
+  seriesId    String
+  episodeNumber Int
+  title       String
+  hook        String
+  synopsis    String
+  cliffhanger String
+  series      Series         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  scenes      Scene[]
+  pipelines   PipelineRun[]
+  evaluations DramaEvaluation[]
+  generationJobs GenerationJob[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([seriesId, episodeNumber])
+  @@index([seriesId, updatedAt])
+}
+
+model Scene {
+  id          String   @id
+  episodeId   String
+  sceneNumber Int
+  title       String
+  description String
+  locationId  String
+  episode     Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  shots       Shot[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([episodeId, sceneNumber])
+}
+
+model Shot {
+  id                       String   @id
+  sceneId                  String
+  shotNumber               Int
+  framing                  String
+  cameraMovement           String
+  description              String
+  dialogue                 String?
+  durationSeconds          Int
+  characterIds             String[]
+  locationId               String
+  continuityRequirements   Json
+  scene                    Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([sceneId, shotNumber])
+}
+
+model SeriesMemoryFact {
+  id               String   @id
+  seriesId         String
+  subjectType      String
+  subjectId        String
+  key              String
+  value            String
+  validFromEpisode Int
+  validFromScene   Int?
+  validFromShot    Int?
+  validToEpisode   Int?
+  validToScene     Int?
+  validToShot      Int?
+  source           String
+  confidence       Float
+  override         Boolean  @default(false)
+  series           Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([seriesId, subjectType, subjectId, key])
   @@index([seriesId, validFromEpisode, validToEpisode])
 }
 
-model AgentExecution {
+model StoryEvent {
   id          String   @id
+  seriesId    String
+  eventType   String
+  description String
+  episodeNumber Int?
+  sceneNumber Int?
+  occurredAt  DateTime?
+  metadata    Json
+  series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([seriesId, episodeNumber, eventType])
+}
+
+model PipelineRun {
+  id              String              @id
+  seriesId        String
+  episodeId       String
+  initiatedById   String
+  state           PipelineState
+  output          Json?
+  generationJobId String?
+  error           String?
+  series          Series              @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode         Episode             @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  initiatedBy     User                @relation(fields: [initiatedById], references: [id], onDelete: Restrict)
+  stages          PipelineStage[]
+  executions      AgentExecution[]
+  approvals       ApprovalDecision[]
+  generationJobs  GenerationJob[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([seriesId, episodeId, state])
+  @@index([initiatedById, updatedAt])
+}
+
+model PipelineStage {
+  id         String              @id
+  pipelineId String
+  stageKey   String
+  status     AgentExecutionStatus
+  output     Json?
+  metadata   Json
+  startedAt  DateTime?
+  completedAt DateTime?
+  pipeline   PipelineRun         @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineId, stageKey])
+}
+
+model AgentExecution {
+  id          String              @id
+  pipelineId  String?
   agent       String
   seriesId    String
   episodeId   String?
   input       Json
   output      Json?
-  status      String
+  status      AgentExecutionStatus
   confidence  Float?
   explanation String?
   timestamp   DateTime
   durationMs  Int
   errors      Json
   metadata    Json
-  createdAt   DateTime @default(now())
+  pipeline    PipelineRun?        @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  createdAt   DateTime            @default(now())
 
   @@index([seriesId, episodeId, timestamp])
-}
-
-model PipelineRun {
-  id              String   @id
-  seriesId        String
-  episodeId       String
-  state           String
-  output          Json?
-  generationJobId String?
-  error           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([seriesId, episodeId, state])
+  @@index([pipelineId, agent])
 }
 
 model ApprovalDecision {
-  id              String   @id
+  id              String         @id
   pipelineId      String
-  status          String
+  status          ApprovalStatus
   requestedAction String
   summary         String
   projectedImpact String
   requestedAt     DateTime
   decisionAt      DateTime?
   decisionNote    String?
+  pipeline        PipelineRun    @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
 
   @@index([pipelineId, status])
+}
+
+model GenerationJob {
+  id              String             @id
+  pipelineId      String?
+  seriesId        String
+  episodeId       String?
+  provider        String
+  model           String
+  status          GenerationJobStatus
+  promptVersion   String
+  inputHash       String
+  estimatedCost   Float
+  actualCost      Float              @default(0)
+  retryCount      Int                @default(0)
+  outputAssetIds  String[]
+  errorMessage    String?
+  pipeline        PipelineRun?       @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  series          Series             @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode         Episode?           @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  createdAt       DateTime           @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  updatedAt       DateTime           @updatedAt
+
+  @@index([seriesId, status, createdAt])
+  @@index([pipelineId])
+}
+
+model DramaEvaluation {
+  id                  String   @id
+  episodeId           String
+  pipelineId          String?
+  hookStrength        Int
+  conflict            Int
+  emotionalIntensity  Int
+  cliffhanger         Int
+  continuity          Int
+  pacing              Int
+  overall             Int
+  recommendations     String[]
+  episode             Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+
+  @@index([episodeId, createdAt])
 }

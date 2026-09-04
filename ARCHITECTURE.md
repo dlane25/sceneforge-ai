@@ -59,7 +59,15 @@ lib/
   
   voice/                       # Voice generation (future)
   db/
+    client.ts                    # Server-only Prisma client
     generation-job-repository.ts # Job management
+  repositories/                  # Persistence contracts and adapters
+    contracts.ts                 # Domain-facing repository interfaces
+    in-memory.ts                 # Deterministic test/local adapter
+    prisma.ts                    # PostgreSQL adapter
+    runtime.ts                   # DATABASE_URL-based selection
+  auth/                          # Provider-neutral auth/session boundary
+  series-memory/                 # Persistent Series Memory facade
   
   validation/                  # Zod schemas
   mock/                        # Mock data for development
@@ -209,6 +217,14 @@ This milestone establishes the foundation:
 - Database schema and migrations
 - Authentication and user management
 - Production deployment infrastructure
+
+## Milestone 3 Persistence and Auth
+
+Production state is now repository-backed. `OrchestrationService` accepts a `PersistenceRepository`, so pipeline runs, agent executions, approval decisions, and memory facts are not coupled to module-level maps. The runtime chooses Prisma when `DATABASE_URL` is available and uses the in-memory adapter for deterministic tests and local demos.
+
+Users own productions through `ProductionMembership` records with `OWNER`, `EDITOR`, and `VIEWER` roles. API routes enforce access server-side: editors may orchestrate, viewers may read, and only owners may approve or reject generation. The mock auth adapter supplies a development identity without credentials; a future identity provider only needs to implement `AuthAdapter`.
+
+See [docs/PERSISTENCE_AND_AUTH.md](docs/PERSISTENCE_AND_AUTH.md) for the database, repository, authorization, and local setup details.
 
 ## Milestone 2 AI Orchestration
 
