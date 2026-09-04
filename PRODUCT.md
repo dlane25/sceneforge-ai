@@ -81,6 +81,10 @@ Milestone 2 adds a staged command-center workflow for each episode:
 
 Agent activity is recorded as an audit trail with concise explanations and confidence values.
 
+### 9. Persistent Productions and Access Control
+
+Milestone 3 adds PostgreSQL-ready persistence for productions, memberships, characters, locations, episodes, Series Memory, orchestration runs, approvals, generation jobs, and scoring evaluations. A provider-neutral session boundary and production roles keep multiple users isolated. The local demo remains usable without PostgreSQL through deterministic in-memory repositories.
+
 ## Workflow
 
 ```
@@ -203,7 +207,7 @@ Potential revenue streams:
 ✓ Mock providers
 ✓ UI dashboard
 
-### Milestone 2 (Current)
+### Milestone 2
 ✓ Deterministic Showrunner, Writer, Director, Continuity, and Scoring agents
 ✓ Typed orchestration state machine and execution audit history
 ✓ Human approval and rejection gate before mock generation
@@ -211,6 +215,14 @@ Potential revenue streams:
 ✓ Prisma models for agent executions, pipeline runs, and approvals
 
 The next milestone can replace deterministic agents with Gemini/Vertex AI adapters without changing domain contracts.
+
+### Milestone 3 (Current)
+✓ Normalized Prisma/PostgreSQL production schema
+✓ Repository interfaces with Prisma and deterministic in-memory adapters
+✓ Persistent orchestration and approval state boundary
+✓ Provider-neutral authentication foundation
+✓ OWNER, EDITOR, and VIEWER production authorization
+✓ Server-side API access checks and sanitized errors
 
 ### Milestone 3
 - Advanced story generation

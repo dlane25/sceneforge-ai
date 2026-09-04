@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { orchestrationService } from '@/lib/orchestration';
+import { requireSeriesAccess } from '@/lib/auth';
+import { apiError } from '@/lib/api';
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const result = await orchestrationService.run(id);
-  return NextResponse.json({ data: result.screenplay, pipeline: result.id, state: result.state });
+  try { const { id } = await params; const { user } = await requireSeriesAccess('series_empire_of_lies', 'EDITOR'); const result = await orchestrationService.run(id, 'series_empire_of_lies', user.id); return NextResponse.json({ data: result.screenplay, pipeline: result.id, state: result.state }); }
+  catch (error) { return apiError(error, 'WRITE_FAILED', 'Unable to write episode'); }
 }

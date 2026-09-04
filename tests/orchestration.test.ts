@@ -29,7 +29,7 @@ describe('orchestration service', () => {
     const pipeline = await service.run('ep_1');
 
     await expect(service.queueGeneration(pipeline.id)).rejects.toThrow('Human approval is required');
-    service.approve(pipeline.id, 'Approved for mock generation');
+    await service.approve(pipeline.id, 'Approved for mock generation');
     const queued = await service.queueGeneration(pipeline.id);
     expect(queued.state).toBe('GENERATION_QUEUED');
     expect(queued.generationJobId).toContain('job_shot_');
@@ -38,7 +38,7 @@ describe('orchestration service', () => {
   it('records rejection without starting generation', async () => {
     const service = new OrchestrationService();
     const pipeline = await service.run('ep_1');
-    const rejected = service.reject(pipeline.id, 'Revise the hook');
+    const rejected = await service.reject(pipeline.id, 'Revise the hook');
 
     expect(rejected.state).toBe('REJECTED');
     expect(rejected.approval?.decisionNote).toBe('Revise the hook');
