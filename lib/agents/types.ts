@@ -1,4 +1,4 @@
-import type { Series } from '@/types';
+import type { Series, Shot, StoryFact } from '@/types';
 
 export type AgentStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 export type AgentIdentity = 'showrunner' | 'writer' | 'director' | 'continuity' | 'scoring';
@@ -8,6 +8,10 @@ export interface AgentContext {
   episodeId?: string;
   memory: SeriesMemorySnapshot;
   pipelineId?: string;
+  productionData?: {
+    shots: Shot[];
+    storyFacts: StoryFact[];
+  };
 }
 
 export interface SeriesMemorySnapshot {

@@ -29,8 +29,13 @@ export interface ShotContinuityRequirement {
 
 export interface Shot {
   id: string;
+  seriesId?: string;
+  episodeId?: string;
   shotNumber: number;
   sceneId: string;
+  title?: string;
+  shotType?: ShotType;
+  cameraAngle?: string;
   framing: ShotFraming;
   cameraMovement: CameraMovement;
   description: string;
@@ -39,8 +44,56 @@ export interface Shot {
   characterIds: string[];
   locationId: string;
   continuityRequirements: ShotContinuityRequirement[];
+  visualPrompt?: string;
+  negativePrompt?: string;
+  continuityNotes?: string[];
+  status?: ShotStatus;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type ShotType = 'establishing' | 'dialogue' | 'action' | 'reaction' | 'insert' | 'transition';
+export type ShotStatus = 'draft' | 'planned' | 'continuity-review' | 'ready' | 'generated' | 'archived';
+
+export interface ShotInput {
+  shotNumber: number;
+  title?: string;
+  description: string;
+  shotType?: ShotType;
+  cameraAngle?: string;
+  cameraMovement?: CameraMovement;
+  framing?: ShotFraming;
+  durationSeconds: number;
+  characterIds?: string[];
+  locationId?: string;
+  dialogue?: string;
+  visualPrompt: string;
+  negativePrompt?: string;
+  continuityNotes?: string[];
+  status?: ShotStatus;
+}
+
+export interface Storyboard {
+  id: string;
+  shotId: string;
+  prompt: string;
+  referenceUrl?: string;
+  generationStatus: 'placeholder' | 'queued' | 'succeeded' | 'failed';
+  provider?: string;
+  generationJobId?: string;
+  width: number;
+  height: number;
+  aspectRatio: '9:16';
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ShotReadiness {
+  ready: boolean;
+  blockers: string[];
+  warnings: string[];
+  checkedAt: Date;
 }
 
 export interface Scene {

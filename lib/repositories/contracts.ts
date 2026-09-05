@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, StoryFact, StoryFactInput } from '@/types';
+import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { Series } from '@/types';
 
 export type RepositoryRole = 'OWNER' | 'EDITOR' | 'VIEWER';
@@ -89,6 +89,15 @@ export interface ProductionDataRepository {
   createStoryFact(seriesId: string, input: StoryFactInput): Promise<StoryFact>;
   updateStoryFact(seriesId: string, factId: string, input: Partial<StoryFactInput>): Promise<StoryFact>;
   deleteStoryFact(seriesId: string, factId: string): Promise<void>;
+  listShots(seriesId: string, episodeId: string, sceneId: string): Promise<Shot[]>;
+  getShot(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Shot | undefined>;
+  createShot(seriesId: string, episodeId: string, sceneId: string, input: ShotInput): Promise<Shot>;
+  updateShot(seriesId: string, episodeId: string, sceneId: string, shotId: string, input: Partial<ShotInput>): Promise<Shot>;
+  deleteShot(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<void>;
+  reorderShots(seriesId: string, episodeId: string, sceneId: string, shotIds: string[]): Promise<Shot[]>;
+  getStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard | undefined>;
+  createStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard>;
+  listAllShots(seriesId: string): Promise<Shot[]>;
 }
 
 export interface SeriesMemoryRepository {

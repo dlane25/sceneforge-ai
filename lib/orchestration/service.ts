@@ -10,13 +10,18 @@ import type { PipelineRun, PipelineSnapshot, PipelineState } from './types';
 
 let pipelineCounter = 0;
 
-function createContext(episodeId: string, pipelineId: string): AgentContext {
+async function createContext(repository: PersistenceRepository, episodeId: string, seriesId: string, pipelineId: string): Promise<AgentContext> {
   const series = { ...EMPIRE_OF_LIES_SERIES, episodes: createEmpireOfLiesEpisodes() };
+  const persistedSeries = await repository.getSeries(seriesId);
+  const activeFacts = await repository.listFacts(seriesId);
+  const storyFacts = await repository.listStoryFacts(seriesId);
+  const shots = await repository.listAllShots(seriesId);
   return {
-    series,
+    series: persistedSeries || series,
     episodeId,
     pipelineId,
-    memory: createMemorySnapshot(series, EMPIRE_OF_LIES_CONTINUITY_FACTS, EMPIRE_OF_LIES_STORY_FACTS.map((fact) => fact.description)),
+    memory: createMemorySnapshot(persistedSeries || series, activeFacts.length ? activeFacts : EMPIRE_OF_LIES_CONTINUITY_FACTS, storyFacts.length ? storyFacts.map((fact) => fact.description) : EMPIRE_OF_LIES_STORY_FACTS.map((fact) => fact.description)),
+    productionData: { shots, storyFacts },
   };
 }
 
@@ -39,7 +44,7 @@ export class OrchestrationService {
       for (const fact of EMPIRE_OF_LIES_CONTINUITY_FACTS) await this.repository.addFact(fact);
       update(pipeline, 'ANALYZING');
       await this.repository.update(pipeline);
-      const context = createContext(episodeId, id);
+      const context = await createContext(this.repository, episodeId, seriesId, id);
 
       const showrunner = new ShowrunnerAgent();
       const showrunnerRequest = { agent: showrunner.identity, input: { concept: EMPIRE_OF_LIES_SERIES.logline }, context } as const;

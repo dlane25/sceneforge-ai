@@ -233,6 +233,14 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Production data workspace UI
 ✓ Series Memory integration through persistent fact contracts
 
+### Milestone 6 (Current)
+✓ Provider-neutral persisted shot model
+✓ Deterministic storyboard placeholders
+✓ Shot CRUD and reordering APIs
+✓ Shot generation-readiness evaluation
+✓ Persisted shots and story facts available to orchestration context
+✓ Storyboard production workspace UI
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters

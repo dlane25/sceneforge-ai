@@ -15,6 +15,11 @@ export type {
   ShotContinuityRequirement,
   EpisodeInput,
   SceneInput,
+  ShotInput,
+  Storyboard,
+  ShotReadiness,
+  ShotType,
+  ShotStatus,
 } from './episode';
 export type { Location, Prop, LocationInput } from './location';
 export type {

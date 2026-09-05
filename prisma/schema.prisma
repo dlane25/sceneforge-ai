@@ -189,8 +189,13 @@ model Scene {
 
 model Shot {
   id                       String   @id
+  seriesId                 String
+  episodeId                String
   sceneId                  String
   shotNumber               Int
+  title                    String?
+  shotType                 String?
+  cameraAngle              String?
   framing                  String
   cameraMovement           String
   description              String
@@ -199,11 +204,34 @@ model Shot {
   characterIds             String[]
   locationId               String
   continuityRequirements   Json
+  visualPrompt             String
+  negativePrompt           String?
+  continuityNotes          String[]
+  status                   String   @default("draft")
   scene                    Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  storyboard              Storyboard?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
   @@unique([sceneId, shotNumber])
+  @@index([seriesId, episodeId, sceneId])
+}
+
+model Storyboard {
+  id               String   @id
+  shotId           String   @unique
+  prompt           String
+  referenceUrl     String?
+  generationStatus String   @default("placeholder")
+  provider         String?
+  generationJobId  String?
+  width            Int
+  height           Int
+  aspectRatio      String
+  version          Int      @default(1)
+  shot             Shot     @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model SeriesMemoryFact {

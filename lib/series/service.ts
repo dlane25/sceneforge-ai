@@ -1,6 +1,6 @@
 import type { AuthenticatedUser } from '@/lib/auth';
 import { AuthorizationError } from '@/lib/auth';
-import type { Character, CharacterInput, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, Series, StoryFact, StoryFactInput } from '@/types';
+import type { Character, CharacterInput, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, Series, Shot, ShotInput, ShotReadiness, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, RepositoryRole, SeriesInput, SeriesMemberInput } from '@/lib/repositories';
 
 export class ProductionService {
@@ -53,6 +53,13 @@ export class ProductionService {
   async createStoryFact(user: AuthenticatedUser, seriesId: string, input: StoryFactInput): Promise<StoryFact> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.createStoryFact(seriesId, input); }
   async updateStoryFact(user: AuthenticatedUser, seriesId: string, factId: string, input: Partial<StoryFactInput>): Promise<StoryFact> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.updateStoryFact(seriesId, factId, input); }
   async deleteStoryFact(user: AuthenticatedUser, seriesId: string, factId: string): Promise<void> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.deleteStoryFact(seriesId, factId); }
+  async listShots(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string): Promise<Shot[]> { await this.requireRole(user, seriesId, 'VIEWER'); return this.repository.listShots(seriesId, episodeId, sceneId); }
+  async createShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, input: ShotInput): Promise<Shot> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.createShot(seriesId, episodeId, sceneId, input); }
+  async updateShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string, input: Partial<ShotInput>): Promise<Shot> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.updateShot(seriesId, episodeId, sceneId, shotId, input); }
+  async deleteShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<void> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.deleteShot(seriesId, episodeId, sceneId, shotId); }
+  async reorderShots(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotIds: string[]): Promise<Shot[]> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.reorderShots(seriesId, episodeId, sceneId, shotIds); }
+  async createStoryboard(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.createStoryboard(seriesId, episodeId, sceneId, shotId); }
+  async getShotReadiness(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<ShotReadiness> { await this.requireRole(user, seriesId, 'VIEWER'); const shot = await this.repository.getShot(seriesId, episodeId, sceneId, shotId); if (!shot) throw new Error(`Shot ${shotId} was not found`); const blockers: string[] = []; const warnings: string[] = []; if (!shot.visualPrompt?.trim()) blockers.push('A visual prompt is required.'); if (!shot.durationSeconds || shot.durationSeconds <= 0) blockers.push('A positive duration is required.'); if (!shot.framing) blockers.push('Framing is required.'); if (!shot.locationId) warnings.push('No location is attached; confirm the scene context.'); if (!shot.characterIds.length) warnings.push('No characters are attached to this shot.'); if (shot.continuityNotes?.length) warnings.push(...shot.continuityNotes); return { ready: blockers.length === 0, blockers, warnings, checkedAt: new Date() }; }
 
   async listMembers(user: AuthenticatedUser, seriesId: string): Promise<ProductionMembershipRecord[]> {
     await this.requireRole(user, seriesId, 'VIEWER');
