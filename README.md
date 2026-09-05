@@ -21,6 +21,8 @@
 
  See [docs/PRODUCTION_DATA.md](docs/PRODUCTION_DATA.md) for the entity model, repository contracts, API surface, and migration workflow.
 
+ Milestone 6 adds provider-neutral shot planning and storyboard placeholders. The production workspace now supports scene shots, ordering, readiness checks, and continuity-aware production context without calling external generation services. See [docs/STORYBOARD_PRODUCTION.md](docs/STORYBOARD_PRODUCTION.md).
+
  ## Run Locally
 
  ```bash

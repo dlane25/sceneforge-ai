@@ -23,3 +23,7 @@ Use Auth.js only through `lib/auth/authjs.ts` and preserve the `AuthAdapter` bou
 ## SceneForge AI Milestone 5
 
 Production data CRUD must go through `ProductionDataRepository` and `ProductionService`. Keep all entity operations production-scoped and authorize through memberships. Validate parent references before writes, preserve deterministic in-memory tests, and keep Prisma server-side. Do not replace the deterministic continuity checker with an LLM.
+
+## SceneForge AI Milestone 6
+
+Shots and storyboards must remain provider-neutral and production-scoped. Use existing repository/service contracts, preserve full series/episode/scene hierarchy checks, and keep readiness deterministic. Persisted production context should reach agents through `AgentContext`, never through direct Prisma imports. Generation remains behind existing approval/governance controls.

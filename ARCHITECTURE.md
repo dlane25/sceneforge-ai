@@ -240,6 +240,10 @@ Production data CRUD is exposed through `ProductionDataRepository` and `Producti
 
 See [docs/PRODUCTION_DATA.md](docs/PRODUCTION_DATA.md) for the detailed model and API list.
 
+## Milestone 6 Storyboard Production
+
+Shots and storyboard placeholders extend the persisted `Series -> Episode -> Scene` hierarchy. `ProductionDataRepository` owns shot CRUD, ordering, storyboard metadata, and full-parent validation. Orchestration loads persisted series, story facts, continuity facts, and shots into typed `AgentContext` through repository contracts; agents remain Prisma-independent. Readiness is a deterministic structured evaluation and does not bypass the human approval gate.
+
 ## Milestone 2 AI Orchestration
 
 The production pipeline is explicit and auditable:
