@@ -33,11 +33,20 @@ export class MockVideoProvider implements VideoProvider {
 
     const job: GenerationJob = {
       id: jobId,
+      seriesId: input.seriesId || '',
+      episodeId: input.episodeId || '',
+      sceneId: input.sceneId || '',
+      shotId: input.shotId || '',
       provider: 'mock',
       model: input.model || 'mock-v1',
+      generationType: 'video',
       status: 'queued',
       promptVersion: '1.0',
       inputHash,
+      promptSnapshot: input.prompt,
+      negativePromptSnapshot: input.negativePrompt,
+      durationSeconds: input.duration,
+      aspectRatio: input.aspectRatio === '9:16' ? '9:16' : '9:16',
       estimatedCost,
       actualCost: 0,
       retryCount: 0,
@@ -58,11 +67,16 @@ export class MockVideoProvider implements VideoProvider {
 
     const job: GenerationJob = {
       id: jobId,
+      seriesId: '', episodeId: '', sceneId: '', shotId: '',
       provider: 'mock',
       model: 'mock-v1',
+      generationType: 'extension',
       status: 'queued',
       promptVersion: '1.0',
       inputHash,
+      promptSnapshot: input.prompt,
+      durationSeconds: input.duration,
+      aspectRatio: '9:16',
       estimatedCost: 50,
       actualCost: 0,
       retryCount: 0,
@@ -83,11 +97,16 @@ export class MockVideoProvider implements VideoProvider {
 
     const job: GenerationJob = {
       id: jobId,
+      seriesId: '', episodeId: '', sceneId: '', shotId: '',
       provider: 'mock',
       model: 'mock-v1',
+      generationType: 'image-to-video',
       status: 'queued',
       promptVersion: '1.0',
       inputHash,
+      promptSnapshot: input.prompt,
+      durationSeconds: input.duration,
+      aspectRatio: '9:16',
       estimatedCost: 75,
       actualCost: 0,
       retryCount: 0,
@@ -117,7 +136,7 @@ export class MockVideoProvider implements VideoProvider {
 
       status = {
         jobId,
-        status: job.status,
+        status: job.status === 'processing' ? 'running' : job.status === 'completed' ? 'succeeded' : job.status === 'queued' || job.status === 'failed' || job.status === 'cancelled' ? job.status : 'queued',
         progress: 0,
       };
     }
@@ -126,7 +145,7 @@ export class MockVideoProvider implements VideoProvider {
     const hash = simpleHash(jobId);
     const progressIncrement = (hash % 30) + 10; // 10-40% per check
 
-    if (status.status === 'queued' || status.status === 'running') {
+    if (status && (status.status === 'queued' || status.status === 'running')) {
       const newProgress = (status.progress || 0) + progressIncrement;
 
       if (newProgress >= 100) {
@@ -136,7 +155,7 @@ export class MockVideoProvider implements VideoProvider {
 
         const job = this.jobs.get(jobId);
         if (job) {
-          job.status = 'succeeded';
+          job.status = 'completed';
           job.actualCost = job.estimatedCost;
           job.outputAssetIds = [status.outputUrl];
           job.completedAt = new Date();
@@ -147,12 +166,23 @@ export class MockVideoProvider implements VideoProvider {
       }
     }
 
-    this.statuses.set(jobId, status);
-    return status;
+    this.statuses.set(jobId, status!);
+    return status!;
   }
 
   async estimateCost(input: VideoGenerationInput): Promise<number> {
     return this.estimateCostSync(input);
+  }
+
+  async cancelJob(jobId: string): Promise<GenerationStatus> {
+    const job = this.jobs.get(jobId);
+    if (!job) return { jobId, status: 'failed', errorMessage: 'Job not found' };
+    job.status = 'cancelled';
+    job.cancelledAt = new Date();
+    job.updatedAt = new Date();
+    const status: GenerationStatus = { jobId, status: 'cancelled', progress: 0 };
+    this.statuses.set(jobId, status);
+    return status;
   }
 
   private estimateCostSync(input: VideoGenerationInput): number {

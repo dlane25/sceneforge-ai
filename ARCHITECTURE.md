@@ -244,6 +244,10 @@ See [docs/PRODUCTION_DATA.md](docs/PRODUCTION_DATA.md) for the detailed model an
 
 Shots and storyboard placeholders extend the persisted `Series -> Episode -> Scene` hierarchy. `ProductionDataRepository` owns shot CRUD, ordering, storyboard metadata, and full-parent validation. Orchestration loads persisted series, story facts, continuity facts, and shots into typed `AgentContext` through repository contracts; agents remain Prisma-independent. Readiness is a deterministic structured evaluation and does not bypass the human approval gate.
 
+## Milestone 7 Media Provider Pipeline
+
+`GenerationService` coordinates provider-neutral shot generation through repository contracts. It snapshots prompts and estimates cost before creating an `awaiting_approval` job, then permits owner-governed execution only after approval. `GeneratedAsset` records provider-neutral output metadata. The mock provider never calls the network and supports deterministic status, cancel, retry, and mock asset behavior.
+
 ## Milestone 2 AI Orchestration
 
 The production pipeline is explicit and auditable:

@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, Scene, SceneInput, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { Series } from '@/types';
 
 export type RepositoryRole = 'OWNER' | 'EDITOR' | 'VIEWER';
@@ -98,6 +98,12 @@ export interface ProductionDataRepository {
   getStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard | undefined>;
   createStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard>;
   listAllShots(seriesId: string): Promise<Shot[]>;
+  createGenerationJob(job: GenerationJob): Promise<GenerationJob>;
+  updateGenerationJob(job: GenerationJob): Promise<GenerationJob>;
+  getGenerationJob(seriesId: string, episodeId: string, sceneId: string, shotId: string, jobId: string): Promise<GenerationJob | undefined>;
+  listGenerationJobs(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GenerationJob[]>;
+  createGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset>;
+  listGeneratedAssets(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GeneratedAsset[]>;
 }
 
 export interface SeriesMemoryRepository {

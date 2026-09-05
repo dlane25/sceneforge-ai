@@ -241,6 +241,12 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Persisted shots and story facts available to orchestration context
 ✓ Storyboard production workspace UI
 
+### Milestone 7 (Current)
+✓ Approval-governed provider-neutral media job lifecycle
+✓ Deterministic mock media provider with status and cancellation
+✓ Persisted generation jobs and generated assets
+✓ Cost estimation, retry, and generated asset review states
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters

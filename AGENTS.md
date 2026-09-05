@@ -27,3 +27,7 @@ Production data CRUD must go through `ProductionDataRepository` and `ProductionS
 ## SceneForge AI Milestone 6
 
 Shots and storyboards must remain provider-neutral and production-scoped. Use existing repository/service contracts, preserve full series/episode/scene hierarchy checks, and keep readiness deterministic. Persisted production context should reach agents through `AgentContext`, never through direct Prisma imports. Generation remains behind existing approval/governance controls.
+
+## SceneForge AI Milestone 7
+
+Media jobs and assets must use the existing repository and production-service boundaries. Snapshot prompts and cost before approval; never invoke a provider before explicit owner approval. Keep mocks deterministic, errors auditable, and future provider behavior behind `VideoProvider` contracts.
