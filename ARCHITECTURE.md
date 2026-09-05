@@ -234,6 +234,12 @@ Auth.js is adapted through `AuthAdapter` and is configured only when `AUTH_MODE=
 
 The UI now includes session-aware navigation, a membership-filtered production library, persisted production creation, production settings, archiving, and owner membership management. No database credentials or provider secrets enter client components.
 
+## Milestone 5 Production Data
+
+Production data CRUD is exposed through `ProductionDataRepository` and `ProductionService`. Characters, locations, episodes, scenes, and story facts are production-scoped and authorization-checked. Episode and scene numbering is unique within its parent, and cross-production references are rejected before persistence. The deterministic Series Memory checker can consume persisted time-scoped continuity facts through the same repository boundary.
+
+See [docs/PRODUCTION_DATA.md](docs/PRODUCTION_DATA.md) for the detailed model and API list.
+
 ## Milestone 2 AI Orchestration
 
 The production pipeline is explicit and auditable:

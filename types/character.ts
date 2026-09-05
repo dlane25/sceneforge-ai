@@ -18,13 +18,30 @@ export interface Character {
   seriesId: string;
   name: string;
   role: CharacterRole;
+  description?: string;
   age: number;
+  ageRange?: string;
   appearance: string;
   wardrobe: string;
   personality: string;
   relationships: CharacterRelationship[];
   voiceProfile: VoiceProfile;
   continuityNotes: string[];
+  status?: 'active' | 'inactive' | 'deceased' | 'archived';
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CharacterInput {
+  name: string;
+  role: CharacterRole;
+  description?: string;
+  age: number;
+  ageRange?: string;
+  appearance: string;
+  personality: string;
+  wardrobe: string;
+  voiceProfile: VoiceProfile;
+  continuityNotes?: string[];
+  status?: Character['status'];
 }

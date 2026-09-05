@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { ContinuityFact } from '@/types';
+import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, StoryFact, StoryFactInput } from '@/types';
 import type { Series } from '@/types';
 
 export type RepositoryRole = 'OWNER' | 'EDITOR' | 'VIEWER';
@@ -64,13 +64,40 @@ export interface SeriesRepository {
   archiveSeries(seriesId: string): Promise<Series>;
 }
 
+export interface ProductionDataRepository {
+  listCharacters(seriesId: string): Promise<Character[]>;
+  getCharacter(seriesId: string, characterId: string): Promise<Character | undefined>;
+  createCharacter(seriesId: string, input: CharacterInput): Promise<Character>;
+  updateCharacter(seriesId: string, characterId: string, input: Partial<CharacterInput>): Promise<Character>;
+  deleteCharacter(seriesId: string, characterId: string): Promise<void>;
+  listLocations(seriesId: string): Promise<Location[]>;
+  getLocation(seriesId: string, locationId: string): Promise<Location | undefined>;
+  createLocation(seriesId: string, input: LocationInput): Promise<Location>;
+  updateLocation(seriesId: string, locationId: string, input: Partial<LocationInput>): Promise<Location>;
+  deleteLocation(seriesId: string, locationId: string): Promise<void>;
+  listEpisodes(seriesId: string): Promise<Episode[]>;
+  getEpisode(seriesId: string, episodeId: string): Promise<Episode | undefined>;
+  createEpisode(seriesId: string, input: EpisodeInput): Promise<Episode>;
+  updateEpisode(seriesId: string, episodeId: string, input: Partial<EpisodeInput>): Promise<Episode>;
+  deleteEpisode(seriesId: string, episodeId: string): Promise<void>;
+  listScenes(seriesId: string, episodeId: string): Promise<Scene[]>;
+  getScene(seriesId: string, episodeId: string, sceneId: string): Promise<Scene | undefined>;
+  createScene(seriesId: string, episodeId: string, input: SceneInput): Promise<Scene>;
+  updateScene(seriesId: string, episodeId: string, sceneId: string, input: Partial<SceneInput>): Promise<Scene>;
+  deleteScene(seriesId: string, episodeId: string, sceneId: string): Promise<void>;
+  listStoryFacts(seriesId: string): Promise<StoryFact[]>;
+  createStoryFact(seriesId: string, input: StoryFactInput): Promise<StoryFact>;
+  updateStoryFact(seriesId: string, factId: string, input: Partial<StoryFactInput>): Promise<StoryFact>;
+  deleteStoryFact(seriesId: string, factId: string): Promise<void>;
+}
+
 export interface SeriesMemoryRepository {
   addFact(fact: ContinuityFact): Promise<ContinuityFact>;
   listFacts(seriesId: string): Promise<ContinuityFact[]>;
   getActiveFacts(seriesId: string, episodeNumber: number, sceneNumber?: number, shotNumber?: number): Promise<ContinuityFact[]>;
 }
 
-export interface PersistenceRepository extends PipelineRepository, MembershipRepository, SeriesMemoryRepository, SeriesRepository {
+export interface PersistenceRepository extends PipelineRepository, MembershipRepository, SeriesMemoryRepository, SeriesRepository, ProductionDataRepository {
   getUser(id: string): Promise<PersistedUser | undefined>;
   findUserByEmail(email: string): Promise<PersistedUser | undefined>;
   upsertUser(user: PersistedUser): Promise<PersistedUser>;

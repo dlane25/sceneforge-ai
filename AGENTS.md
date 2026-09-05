@@ -19,3 +19,7 @@ Persistence must go through `lib/repositories` contracts. Use the Prisma adapter
 ## SceneForge AI Milestone 4
 
 Use Auth.js only through `lib/auth/authjs.ts` and preserve the `AuthAdapter` boundary. Keep `AUTH_MODE=mock` explicit for local/tests and reject it in production unless intentionally configured. Provision users by provider subject and verified email. Keep production CRUD authorization in `ProductionService`; API handlers should not invent role checks. Never add provider credentials or `.env.local` files to the repository.
+
+## SceneForge AI Milestone 5
+
+Production data CRUD must go through `ProductionDataRepository` and `ProductionService`. Keep all entity operations production-scoped and authorize through memberships. Validate parent references before writes, preserve deterministic in-memory tests, and keep Prisma server-side. Do not replace the deterministic continuity checker with an LLM.
