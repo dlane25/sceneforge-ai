@@ -52,6 +52,9 @@ export interface Scene {
   shots: Shot[];
   characterIds: string[];
   locationId: string;
+  timeOfDay?: string;
+  estimatedDurationSeconds?: number;
+  status?: 'draft' | 'approved' | 'shot' | 'archived';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,7 +68,29 @@ export interface Episode {
   synopsis: string;
   scenes: Scene[];
   cliffhanger: string;
+  status?: 'draft' | 'outlined' | 'in-production' | 'completed' | 'archived';
+  estimatedDurationSeconds?: number;
   dramaScore?: DramaScore;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface EpisodeInput {
+  episodeNumber: number;
+  title: string;
+  synopsis: string;
+  hook?: string;
+  cliffhanger?: string;
+  status?: Episode['status'];
+  estimatedDurationSeconds?: number;
+}
+
+export interface SceneInput {
+  sceneNumber: number;
+  title: string;
+  description: string;
+  locationId?: string;
+  timeOfDay?: string;
+  estimatedDurationSeconds?: number;
+  status?: 'draft' | 'approved' | 'shot' | 'archived';
 }

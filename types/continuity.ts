@@ -45,3 +45,17 @@ export interface StoryFact {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface StoryFactInput {
+  episodeId?: string;
+  sceneId?: string;
+  subjectType: ContinuitySubjectType;
+  subjectId?: string;
+  category: string;
+  description: string;
+  validFromEpisode?: number;
+  validUntilEpisode?: number;
+  source: string;
+  confidence?: number;
+  metadata?: Record<string, unknown>;
+}

@@ -79,6 +79,7 @@ model Series {
   episodes         Episode[]
   memoryFacts      SeriesMemoryFact[]
   storyEvents      StoryEvent[]
+  storyFacts       StoryFact[]
   pipelines        PipelineRun[]
   generationJobs   GenerationJob[]
   createdAt        DateTime              @default(now())
@@ -106,13 +107,16 @@ model Character {
   seriesId         String
   name             String
   role             String
+  description      String?
   age              Int
+  ageRange         String?
   appearance       String
   wardrobe         String
   personality      String
   relationships    Json
   voiceProfile     Json
   continuityNotes  String[]
+  status           String   @default("active")
   series           Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -125,10 +129,13 @@ model Location {
   seriesId    String
   name        String
   description String
+  type        String?
+  visualDescription String?
   roomDetails String?
   lighting    String?
   visualStyle String?
   props       Json
+  continuityNotes String[]
   series      Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   scenes      Scene[]
   createdAt   DateTime @default(now())
@@ -145,10 +152,13 @@ model Episode {
   hook        String
   synopsis    String
   cliffhanger String
+  status      String         @default("draft")
+  estimatedDurationSeconds Int?
   series      Series         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   scenes      Scene[]
   pipelines   PipelineRun[]
   evaluations DramaEvaluation[]
+  storyFacts  StoryFact[]
   generationJobs GenerationJob[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -164,9 +174,13 @@ model Scene {
   title       String
   description String
   locationId  String
+  timeOfDay   String?
+  estimatedDurationSeconds Int?
+  status      String   @default("draft")
   episode     Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
   location    Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
   shots       Shot[]
+  storyFacts  StoryFact[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -230,6 +244,30 @@ model StoryEvent {
   updatedAt   DateTime @updatedAt
 
   @@index([seriesId, episodeNumber, eventType])
+}
+
+model StoryFact {
+  id               String   @id
+  seriesId         String
+  episodeId        String?
+  sceneId          String?
+  subjectType      String
+  subjectId        String?
+  category         String
+  description      String
+  validFromEpisode Int?
+  validUntilEpisode Int?
+  source           String
+  confidence       Float?
+  metadata         Json
+  series           Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode          Episode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  scene            Scene?   @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([seriesId, category, validFromEpisode, validUntilEpisode])
+  @@index([seriesId, subjectType, subjectId])
 }
 
 model PipelineRun {

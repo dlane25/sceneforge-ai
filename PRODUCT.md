@@ -225,6 +225,14 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Last-owner protection and server-side tenant isolation
 ✓ Production settings and membership UI
 
+### Milestone 5 (Current)
+✓ Structured production data foundation
+✓ Character, location, episode, scene, and story-fact CRUD
+✓ Prisma and deterministic in-memory repository implementations
+✓ Production-scoped validation and cross-entity invariants
+✓ Production data workspace UI
+✓ Series Memory integration through persistent fact contracts
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters
