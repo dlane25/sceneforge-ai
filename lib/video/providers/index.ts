@@ -1,11 +1,20 @@
 import type { GenerationJob } from '@/types';
 
 export interface VideoGenerationInput {
+  seriesId?: string;
+  episodeId?: string;
+  sceneId?: string;
+  shotId?: string;
   prompt: string;
+  negativePrompt?: string;
   duration: number;
   aspectRatio?: '9:16' | '16:9' | '1:1';
   style?: string;
   model?: string;
+  width?: number;
+  height?: number;
+  seed?: string;
+  continuityConstraints?: string[];
 }
 
 export interface VideoExtensionInput {
@@ -35,5 +44,6 @@ export interface VideoProvider {
   extendShot(input: VideoExtensionInput): Promise<GenerationJob>;
   imageToVideo(input: ImageToVideoInput): Promise<GenerationJob>;
   getStatus(jobId: string): Promise<GenerationStatus>;
+  cancelJob(jobId: string): Promise<GenerationStatus>;
   estimateCost(input: VideoGenerationInput): Promise<number>;
 }

@@ -385,6 +385,17 @@ model GenerationJob {
   estimatedCost   Float
   actualCost      Float              @default(0)
   retryCount      Int                @default(0)
+  sceneId         String?
+  shotId          String?
+  providerJobId   String?
+  generationType  String             @default("video")
+  promptSnapshot  String             @default("")
+  negativePromptSnapshot String?
+  durationSeconds Int                @default(0)
+  aspectRatio     String             @default("9:16")
+  errorCode       String?
+  retryable       Boolean?
+  cancelledAt     DateTime?
   outputAssetIds  String[]
   errorMessage    String?
   pipeline        PipelineRun?       @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
@@ -394,9 +405,34 @@ model GenerationJob {
   startedAt       DateTime?
   completedAt     DateTime?
   updatedAt       DateTime           @updatedAt
+  assets          GeneratedAsset[]
 
   @@index([seriesId, status, createdAt])
   @@index([pipelineId])
+}
+
+model GeneratedAsset {
+  id              String   @id
+  generationJobId String
+  seriesId        String
+  episodeId       String
+  sceneId         String
+  shotId          String
+  assetType       String
+  uri             String
+  mimeType        String
+  width           Int
+  height          Int
+  durationSeconds Int?
+  provider        String
+  fingerprint     String
+  version         Int      @default(1)
+  reviewStatus    String   @default("pending")
+  generationJob   GenerationJob @relation(fields: [generationJobId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([seriesId, episodeId, sceneId, shotId])
 }
 
 model DramaEvaluation {

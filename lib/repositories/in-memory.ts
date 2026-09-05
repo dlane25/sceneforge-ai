@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import { EMPIRE_OF_LIES_CHARACTERS, EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, PipelineStageStatus, SeriesInput } from './contracts';
 
@@ -21,6 +21,8 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   private storyFacts = new Map<string, StoryFact>();
   private shots = new Map<string, Shot>();
   private storyboards = new Map<string, Storyboard>();
+  private generationJobs = new Map<string, GenerationJob>();
+  private assets = new Map<string, GeneratedAsset>();
 
   constructor() {
     this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() }));
@@ -76,6 +78,12 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   async getStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard | undefined> { if (!(await this.getShot(seriesId, episodeId, sceneId, shotId))) return undefined; const value = this.storyboards.get(shotId); return value ? clone(value) : undefined; }
   async createStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard> { const shot = await this.getShot(seriesId, episodeId, sceneId, shotId); if (!shot) throw new Error(`Shot ${shotId} was not found`); const current = this.storyboards.get(shotId); if (current) return clone(current); const value: Storyboard = { id: `storyboard_${shotId}`, shotId, prompt: shot.visualPrompt || shot.description, generationStatus: 'placeholder', provider: 'mock', width: 720, height: 1280, aspectRatio: '9:16', version: 1, createdAt: new Date(), updatedAt: new Date() }; this.storyboards.set(shotId, clone(value)); return clone(value); }
   async listAllShots(seriesId: string): Promise<Shot[]> { return [...this.shots.values()].filter((shot) => shot.seriesId === seriesId).sort((a, b) => a.shotNumber - b.shotNumber).map(clone); }
+  async createGenerationJob(job: GenerationJob): Promise<GenerationJob> { this.generationJobs.set(job.id, clone(job)); return clone(job); }
+  async updateGenerationJob(job: GenerationJob): Promise<GenerationJob> { if (!this.generationJobs.has(job.id)) throw new Error(`Generation job ${job.id} was not found`); this.generationJobs.set(job.id, clone(job)); return clone(job); }
+  async getGenerationJob(seriesId: string, episodeId: string, sceneId: string, shotId: string, jobId: string): Promise<GenerationJob | undefined> { const job = this.generationJobs.get(jobId); return job?.seriesId === seriesId && job.episodeId === episodeId && job.sceneId === sceneId && job.shotId === shotId ? clone(job) : undefined; }
+  async listGenerationJobs(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GenerationJob[]> { return [...this.generationJobs.values()].filter((job) => job.seriesId === seriesId && job.episodeId === episodeId && job.sceneId === sceneId && job.shotId === shotId).map(clone); }
+  async createGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset> { this.assets.set(asset.id, clone(asset)); return clone(asset); }
+  async listGeneratedAssets(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GeneratedAsset[]> { return [...this.assets.values()].filter((asset) => asset.seriesId === seriesId && asset.episodeId === episodeId && asset.sceneId === sceneId && asset.shotId === shotId).map(clone); }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
   async get(id: string): Promise<PipelineRun | undefined> { const value = this.pipelines.get(id); return value ? clone(value) : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
@@ -96,7 +104,7 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
       return true;
     });
   }
-  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
+  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.generationJobs.clear(); this.assets.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
 }
 
 export const memoryRepository = new InMemoryPersistenceRepository();

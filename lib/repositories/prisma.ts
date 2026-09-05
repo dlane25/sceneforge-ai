@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, Location, LocationInput, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, RepositoryRole, PipelineStageStatus, SeriesInput } from './contracts';
 import { EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 
@@ -75,6 +75,12 @@ export class PrismaPersistenceRepository implements PersistenceRepository {
   async getStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard | undefined> { const shot = await this.getShot(seriesId, episodeId, sceneId, shotId); if (!shot) return undefined; const value = await this.db.storyboard.findUnique({ where: { shotId } }); return value ? this.toStoryboard(value) : undefined; }
   async createStoryboard(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard> { const shot = await this.getShot(seriesId, episodeId, sceneId, shotId); if (!shot) throw new Error(`Shot ${shotId} was not found`); const value = await this.db.storyboard.upsert({ where: { shotId }, create: { id: `storyboard_${shotId}`, shotId, prompt: shot.visualPrompt || shot.description, generationStatus: 'placeholder', provider: 'mock', width: 720, height: 1280, aspectRatio: '9:16' }, update: { prompt: shot.visualPrompt || shot.description, updatedAt: new Date() } }); return this.toStoryboard(value); }
   async listAllShots(seriesId: string): Promise<Shot[]> { const values = await this.db.shot.findMany({ where: { seriesId }, orderBy: { shotNumber: 'asc' } }); return values.map((value) => this.toShot(value)); }
+  async createGenerationJob(job: GenerationJob): Promise<GenerationJob> { await this.db.generationJob.create({ data: job as never }); return job; }
+  async updateGenerationJob(job: GenerationJob): Promise<GenerationJob> { await this.db.generationJob.update({ where: { id: job.id }, data: job as never }); return job; }
+  async getGenerationJob(seriesId: string, episodeId: string, sceneId: string, shotId: string, jobId: string): Promise<GenerationJob | undefined> { const value = await this.db.generationJob.findFirst({ where: { id: jobId, seriesId, episodeId, sceneId, shotId } }); return value ? value as unknown as GenerationJob : undefined; }
+  async listGenerationJobs(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GenerationJob[]> { const values = await this.db.generationJob.findMany({ where: { seriesId, episodeId, sceneId, shotId } }); return values as unknown as GenerationJob[]; }
+  async createGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset> { await this.db.generatedAsset.create({ data: asset as never }); return asset; }
+  async listGeneratedAssets(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GeneratedAsset[]> { const values = await this.db.generatedAsset.findMany({ where: { seriesId, episodeId, sceneId, shotId } }); return values as unknown as GeneratedAsset[]; }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.create({ data: { id: pipeline.id, seriesId: pipeline.seriesId, episodeId: pipeline.episodeId, initiatedById: pipeline.initiatedById, state: pipeline.state, output: pipeline as object, error: pipeline.error } }); return pipeline; }
   async get(id: string): Promise<PipelineRun | undefined> { const value = await this.db.pipelineRun.findUnique({ where: { id } }); return value?.output ? value.output as unknown as PipelineRun : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.update({ where: { id: pipeline.id }, data: { state: pipeline.state, output: pipeline as object, generationJobId: pipeline.generationJobId, error: pipeline.error } }); return pipeline; }
