@@ -226,6 +226,14 @@ Users own productions through `ProductionMembership` records with `OWNER`, `EDIT
 
 See [docs/PERSISTENCE_AND_AUTH.md](docs/PERSISTENCE_AND_AUTH.md) for the database, repository, authorization, and local setup details.
 
+## Milestone 4 Real Auth and CRUD
+
+Auth.js is adapted through `AuthAdapter` and is configured only when `AUTH_MODE=authjs` plus provider credentials are present. The deterministic mock adapter remains available for local and test runs; production rejects mock mode by default. First-login provisioning maps provider subject and verified email to a stable local `User` record.
+
+`ProductionService` owns authenticated production CRUD and membership mutations. It uses repository contracts, applies `OWNER`/`EDITOR`/`VIEWER` rules, and prevents removal or demotion of the last owner. API routes only parse requests, resolve the current user, call the service, and map sanitized errors.
+
+The UI now includes session-aware navigation, a membership-filtered production library, persisted production creation, production settings, archiving, and owner membership management. No database credentials or provider secrets enter client components.
+
 ## Milestone 2 AI Orchestration
 
 The production pipeline is explicit and auditable:

@@ -8,7 +8,7 @@ export * from './types';
 export { MockAuthAdapter } from './mock';
 
 let authAdapter: AuthAdapter = mockAuth;
-type AuthDataRepository = MembershipRepository & Partial<Pick<PersistenceRepository, 'upsertUser'>>;
+type AuthDataRepository = MembershipRepository & Pick<PersistenceRepository, 'upsertUserIdentity'>;
 let membershipRepository: AuthDataRepository = runtimeRepository;
 
 export function setAuthAdapter(adapter: AuthAdapter): void { authAdapter = adapter; }
@@ -16,23 +16,27 @@ export function getAuthAdapter(): AuthAdapter { return authAdapter; }
 export function setMembershipRepository(repository: AuthDataRepository): void { membershipRepository = repository; }
 
 export async function optionalUser(): Promise<AuthenticatedUser | null> {
-  const session = await authAdapter.getSession();
-  return session?.user || null;
+  if (process.env.NODE_ENV === 'production' && process.env.AUTH_MODE !== 'authjs') return null;
+  const session = await getActiveAdapter().getSession();
+  if (!session?.user) return null;
+  const persisted = await membershipRepository.upsertUserIdentity({ email: session.user.email, displayName: session.user.displayName, provider: session.user.provider, providerSubject: session.user.subject });
+  return { ...session.user, id: persisted.id };
 }
 
 export async function requireUser(): Promise<AuthContext> {
-  const session: Session | null = await authAdapter.getSession();
+  if (process.env.NODE_ENV === 'production' && process.env.AUTH_MODE !== 'authjs') throw new AuthenticationError('Production authentication is not configured');
+  const session: Session | null = await getActiveAdapter().getSession();
   if (!session) throw new AuthenticationError('Authentication is required');
-  return { user: session.user, session };
+  const user = await optionalUser();
+  if (!user) throw new AuthenticationError('Authentication is required');
+  return { user, session: { ...session, user } };
 }
 
 export async function ensureDemoMembership(seriesId: string): Promise<void> {
   const user = await optionalUser();
   if (!user || seriesId !== 'series_empire_of_lies') return;
-  if (membershipRepository.upsertUser) {
-    const persistedUser: PersistedUser = user;
-    await membershipRepository.upsertUser(persistedUser);
-  }
+  const persistedUser: Omit<PersistedUser, 'id'> = { email: user.email, displayName: user.displayName, provider: user.provider, providerSubject: user.subject };
+  await membershipRepository.upsertUserIdentity(persistedUser);
   const current = await membershipRepository.getMembership(user.id, seriesId);
   if (!current) await membershipRepository.upsertMembership({ id: `membership_${user.id}_${seriesId}`, userId: user.id, seriesId, role: 'OWNER' });
 }
@@ -50,3 +54,10 @@ export async function requireSeriesAccess(seriesId: string, role: 'OWNER' | 'EDI
 export async function canReadSeries(userId: string, seriesId: string): Promise<boolean> { const membership = await membershipRepository.getMembership(userId, seriesId); return Boolean(membership); }
 export async function canEditSeries(userId: string, seriesId: string): Promise<boolean> { const membership = await membershipRepository.getMembership(userId, seriesId); return membership?.role === 'OWNER' || membership?.role === 'EDITOR'; }
 export async function canApprovePipeline(userId: string, seriesId: string): Promise<boolean> { const membership = await membershipRepository.getMembership(userId, seriesId); return membership?.role === 'OWNER'; }
+
+function getActiveAdapter(): AuthAdapter {
+  if (process.env.AUTH_MODE === 'authjs') {
+    return { getSession: async () => (await import('./authjs')).authJsAdapter.getSession() };
+  }
+  return authAdapter;
+}

@@ -1,8 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { ContinuityFact } from '@/types';
-import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, RepositoryRole, PipelineStageStatus } from './contracts';
+import type { ContinuityFact, Series } from '@/types';
+import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, RepositoryRole, PipelineStageStatus, SeriesInput } from './contracts';
 import { EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 
 export class PrismaPersistenceRepository implements PersistenceRepository {
@@ -10,11 +10,21 @@ export class PrismaPersistenceRepository implements PersistenceRepository {
 
   async getUser(id: string): Promise<PersistedUser | undefined> {
     const user = await this.db.user.findUnique({ where: { id } });
-    return user ? { id: user.id, email: user.email, displayName: user.displayName } : undefined;
+    return user ? { id: user.id, email: user.email, displayName: user.displayName, provider: user.provider, providerSubject: user.providerSubject } : undefined;
   }
+  async findUserByEmail(email: string): Promise<PersistedUser | undefined> { const user = await this.db.user.findUnique({ where: { email } }); return user ? { id: user.id, email: user.email, displayName: user.displayName, provider: user.provider, providerSubject: user.providerSubject } : undefined; }
   async upsertUser(user: PersistedUser): Promise<PersistedUser> {
-    const value = await this.db.user.upsert({ where: { id: user.id }, create: user, update: { email: user.email, displayName: user.displayName } });
-    return { id: value.id, email: value.email, displayName: value.displayName };
+    const value = await this.db.user.upsert({ where: { id: user.id }, create: user, update: { email: user.email, displayName: user.displayName, provider: user.provider, providerSubject: user.providerSubject } });
+    return { id: value.id, email: value.email, displayName: value.displayName, provider: value.provider, providerSubject: value.providerSubject };
+  }
+  async upsertUserIdentity(user: Omit<PersistedUser, 'id'>): Promise<PersistedUser> {
+    const byEmail = await this.db.user.findUnique({ where: { email: user.email } });
+    if (byEmail) {
+      const linked = await this.db.user.update({ where: { id: byEmail.id }, data: { displayName: user.displayName, provider: user.provider, providerSubject: user.providerSubject } });
+      return { id: linked.id, email: linked.email, displayName: linked.displayName, provider: linked.provider, providerSubject: linked.providerSubject };
+    }
+    const value = await this.db.user.upsert({ where: { provider_providerSubject: { provider: user.provider, providerSubject: user.providerSubject } }, create: { ...user, id: `user_${user.provider}_${user.providerSubject}`.replace(/[^a-zA-Z0-9_-]/g, '_') }, update: { email: user.email, displayName: user.displayName } });
+    return { id: value.id, email: value.email, displayName: value.displayName, provider: value.provider, providerSubject: value.providerSubject };
   }
   async getMembership(userId: string, seriesId: string): Promise<ProductionMembershipRecord | undefined> {
     if (seriesId === EMPIRE_OF_LIES_SERIES.id) await this.ensureDemoProduction(userId);
@@ -25,6 +35,13 @@ export class PrismaPersistenceRepository implements PersistenceRepository {
     const value = await this.db.productionMembership.upsert({ where: { userId_seriesId: { userId: record.userId, seriesId: record.seriesId } }, create: { id: record.id, userId: record.userId, seriesId: record.seriesId, role: record.role }, update: { role: record.role } });
     return { id: value.id, userId: value.userId, seriesId: value.seriesId, role: value.role as RepositoryRole };
   }
+  async listMemberships(seriesId: string): Promise<ProductionMembershipRecord[]> { const values = await this.db.productionMembership.findMany({ where: { seriesId } }); return values.map((value) => ({ id: value.id, userId: value.userId, seriesId: value.seriesId, role: value.role as RepositoryRole })); }
+  async removeMembership(userId: string, seriesId: string): Promise<void> { await this.db.productionMembership.delete({ where: { userId_seriesId: { userId, seriesId } } }); }
+  async listAccessibleSeries(userId: string): Promise<Series[]> { const values = await this.db.series.findMany({ where: { memberships: { some: { userId } } }, include: { characters: true, episodes: true } }); return values.map((value) => this.toSeries(value)); }
+  async getSeries(seriesId: string): Promise<Series | undefined> { const value = await this.db.series.findUnique({ where: { id: seriesId }, include: { characters: true, episodes: true } }); return value ? this.toSeries(value) : undefined; }
+  async createSeries(ownerId: string, input: SeriesInput): Promise<Series> { const value = await this.db.series.create({ data: { id: `series_${Date.now()}`, title: input.title, logline: input.logline, genre: input.genre, targetAudience: input.targetAudience, visualStyle: input.visualStyle, episodeCount: input.episodeCount, episodeDurationSeconds: input.episodeDurationSeconds, status: input.status || 'draft', ownerId, memberships: { create: { id: `membership_${Date.now()}`, userId: ownerId, role: 'OWNER' } } }, include: { characters: true, episodes: true } }); return this.toSeries(value); }
+  async updateSeries(seriesId: string, input: Partial<SeriesInput>): Promise<Series> { const value = await this.db.series.update({ where: { id: seriesId }, data: input, include: { characters: true, episodes: true } }); return this.toSeries(value); }
+  async archiveSeries(seriesId: string): Promise<Series> { return this.updateSeries(seriesId, { status: 'archived' }); }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.create({ data: { id: pipeline.id, seriesId: pipeline.seriesId, episodeId: pipeline.episodeId, initiatedById: pipeline.initiatedById, state: pipeline.state, output: pipeline as object, error: pipeline.error } }); return pipeline; }
   async get(id: string): Promise<PipelineRun | undefined> { const value = await this.db.pipelineRun.findUnique({ where: { id } }); return value?.output ? value.output as unknown as PipelineRun : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.update({ where: { id: pipeline.id }, data: { state: pipeline.state, output: pipeline as object, generationJobId: pipeline.generationJobId, error: pipeline.error } }); return pipeline; }
@@ -42,5 +59,8 @@ export class PrismaPersistenceRepository implements PersistenceRepository {
     for (const episode of createEmpireOfLiesEpisodes()) {
       await this.db.episode.upsert({ where: { seriesId_episodeNumber: { seriesId: EMPIRE_OF_LIES_SERIES.id, episodeNumber: episode.episodeNumber } }, create: { id: episode.id, seriesId: EMPIRE_OF_LIES_SERIES.id, episodeNumber: episode.episodeNumber, title: episode.title, hook: episode.hook, synopsis: episode.synopsis, cliffhanger: episode.cliffhanger }, update: { title: episode.title, hook: episode.hook, synopsis: episode.synopsis, cliffhanger: episode.cliffhanger } });
     }
+  }
+  private toSeries(value: { id: string; title: string; logline: string; genre: string; targetAudience: string; visualStyle: string; episodeCount: number; episodeDurationSeconds: number; status: string; createdAt: Date; updatedAt: Date; characters: Array<{ id: string; seriesId: string; name: string; role: string; age: number; appearance: string; wardrobe: string; personality: string; relationships: unknown; voiceProfile: unknown; continuityNotes: string[]; createdAt: Date; updatedAt: Date }>; episodes: Array<{ id: string; seriesId: string; episodeNumber: number; title: string; hook: string; synopsis: string; cliffhanger: string; createdAt: Date; updatedAt: Date }> }): Series {
+    return { id: value.id, title: value.title, logline: value.logline, genre: value.genre, targetAudience: value.targetAudience, visualStyle: value.visualStyle, episodeCount: value.episodeCount, episodeDurationSeconds: value.episodeDurationSeconds, status: value.status as Series['status'], characters: value.characters.map((character) => ({ ...character, role: character.role as never, relationships: character.relationships as never, voiceProfile: character.voiceProfile as never })), episodes: value.episodes.map((episode) => ({ ...episode, scenes: [] })), createdAt: value.createdAt, updatedAt: value.updatedAt };
   }
 }

@@ -216,6 +216,15 @@ Potential revenue streams:
 
 The next milestone can replace deterministic agents with Gemini/Vertex AI adapters without changing domain contracts.
 
+### Milestone 4 (Current)
+✓ Auth.js production adapter behind the existing auth abstraction
+✓ Deterministic local/test authentication fallback
+✓ Idempotent user provisioning and email-linked invited identities
+✓ Authenticated production list/create/view/update/archive flows
+✓ OWNER, EDITOR, and VIEWER membership management
+✓ Last-owner protection and server-side tenant isolation
+✓ Production settings and membership UI
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters

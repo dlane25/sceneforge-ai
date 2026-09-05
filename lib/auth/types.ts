@@ -2,6 +2,8 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   displayName: string;
+  provider: string;
+  subject: string;
 }
 
 export interface Session {

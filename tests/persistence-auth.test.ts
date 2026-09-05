@@ -49,32 +49,37 @@ describe('persistence repositories', () => {
 });
 
 describe('authentication and authorization boundaries', () => {
+  it('supports a provider adapter through the auth contract without contacting a provider', async () => {
+    setAuthAdapter({ getSession: async () => ({ user: { id: 'provider-id', email: 'provider@example.test', displayName: 'Provider User', provider: 'fixture', subject: 'subject-1' } }) });
+    await expect((await import('@/lib/auth')).requireUser()).resolves.toMatchObject({ user: { email: 'provider@example.test' } });
+  });
+
   it('rejects unauthenticated access', async () => {
     setAuthAdapter(new MockAuthAdapter(null));
     await expect(requireSeriesAccess(seriesId)).rejects.toBeInstanceOf(AuthenticationError);
   });
 
   it('allows OWNER approval-level access and EDITOR edit access', async () => {
-    const owner = { user: { id: 'owner', email: 'owner@example.test', displayName: 'Owner' } };
+    const owner = { user: { id: 'owner', email: 'owner@example.test', displayName: 'Owner', provider: 'mock', subject: 'owner' } };
     setAuthAdapter(new MockAuthAdapter(owner));
     const repository = new InMemoryPersistenceRepository();
     setMembershipRepository(repository);
     await repository.upsertMembership({ id: 'membership-owner', userId: 'owner', seriesId, role: 'OWNER' });
-    await repository.upsertUser(owner.user);
+    await repository.upsertUser({ ...owner.user, providerSubject: owner.user.subject });
 
     await expect(requireSeriesAccess(seriesId, 'OWNER')).resolves.toBeDefined();
   });
 
   it('does not grant access from an ID alone', async () => {
-    setAuthAdapter(new MockAuthAdapter({ user: { id: 'stranger', email: 'stranger@example.test', displayName: 'Stranger' } }));
+    setAuthAdapter(new MockAuthAdapter({ user: { id: 'stranger', email: 'stranger@example.test', displayName: 'Stranger', provider: 'mock', subject: 'stranger' } }));
     await expect(requireSeriesAccess('private-series', 'VIEWER')).rejects.toBeInstanceOf(AuthorizationError);
   });
 
   it('enforces VIEWER restrictions through role helpers', async () => {
-    setAuthAdapter(new MockAuthAdapter({ user: { id: 'viewer', email: 'viewer@example.test', displayName: 'Viewer' } }));
+    setAuthAdapter(new MockAuthAdapter({ user: { id: 'viewer', email: 'viewer@example.test', displayName: 'Viewer', provider: 'mock', subject: 'viewer' } }));
     const repository = new InMemoryPersistenceRepository();
     setMembershipRepository(repository);
-    await repository.upsertUser({ id: 'viewer', email: 'viewer@example.test', displayName: 'Viewer' });
+    await repository.upsertUser({ id: 'viewer', email: 'viewer@example.test', displayName: 'Viewer', provider: 'mock', providerSubject: 'viewer' });
     await repository.upsertMembership({ id: 'membership-viewer', userId: 'viewer', seriesId, role: 'VIEWER' });
 
     await expect(requireSeriesAccess(seriesId, 'EDITOR')).rejects.toBeInstanceOf(AuthorizationError);
@@ -82,10 +87,11 @@ describe('authentication and authorization boundaries', () => {
   });
 
   it('allows EDITOR access for content work but not owner approval', async () => {
-    setAuthAdapter(new MockAuthAdapter({ user: { id: 'editor', email: 'editor@example.test', displayName: 'Editor' } }));
+    setAuthAdapter(new MockAuthAdapter({ user: { id: 'editor', email: 'editor@example.test', displayName: 'Editor', provider: 'mock', subject: 'editor' } }));
     const repository = new InMemoryPersistenceRepository();
     setMembershipRepository(repository);
-    await repository.upsertMembership({ id: 'membership-editor', userId: 'editor', seriesId, role: 'EDITOR' });
+    const persistedEditor = await repository.upsertUserIdentity({ email: 'editor@example.test', displayName: 'Editor', provider: 'mock', providerSubject: 'editor' });
+    await repository.upsertMembership({ id: 'membership-editor', userId: persistedEditor.id, seriesId, role: 'EDITOR' });
 
     await expect(requireSeriesAccess(seriesId, 'EDITOR')).resolves.toBeDefined();
     await expect(requireSeriesAccess(seriesId, 'OWNER')).rejects.toBeInstanceOf(AuthorizationError);
