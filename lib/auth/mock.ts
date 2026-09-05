@@ -5,6 +5,8 @@ const demoSession: Session = {
     id: process.env.DEV_USER_ID || 'demo-user',
     email: process.env.DEV_USER_EMAIL || 'demo@sceneforge.local',
     displayName: 'Demo Producer',
+    provider: 'mock',
+    subject: process.env.DEV_USER_ID || 'demo-user',
   },
 };
 

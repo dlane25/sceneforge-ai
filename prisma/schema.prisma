@@ -50,11 +50,15 @@ model User {
   id          String                @id
   email       String                @unique
   displayName String
+  provider    String
+  providerSubject String
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
   memberships ProductionMembership[]
   pipelines   PipelineRun[]
   ownedSeries Series[]
+
+  @@unique([provider, providerSubject])
 }
 
 model Series {

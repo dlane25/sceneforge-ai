@@ -15,7 +15,9 @@
 
  This milestone does not call paid AI, video, voice, or cloud APIs. All agent implementations are deterministic fixtures behind replaceable interfaces.
 
- Persistence is PostgreSQL-ready through Prisma. Without `DATABASE_URL`, the app and tests use deterministic in-memory repositories; with `DATABASE_URL`, the runtime selects the Prisma repository. See [docs/PERSISTENCE_AND_AUTH.md](docs/PERSISTENCE_AND_AUTH.md).
+ Persistence is PostgreSQL-ready through Prisma. Without `DATABASE_URL`, the app and tests use deterministic in-memory repositories; with `DATABASE_URL`, the runtime selects the Prisma repository. Auth.js provides pluggable production sessions, while `AUTH_MODE=mock` is the explicit local/test fallback. See [docs/REAL_AUTH_AND_CRUD.md](docs/REAL_AUTH_AND_CRUD.md) and [docs/PERSISTENCE_AND_AUTH.md](docs/PERSISTENCE_AND_AUTH.md).
+
+ The `/series` library lists only productions available to the current user. Creating a production persists it and makes the creator its `OWNER`; the production settings view supports metadata edits, archive, and owner-managed membership.
 
  ## Run Locally
 

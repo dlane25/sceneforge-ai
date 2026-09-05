@@ -15,3 +15,7 @@ Agent work must preserve the provider-neutral architecture. Implement model-spec
 ## SceneForge AI Milestone 3
 
 Persistence must go through `lib/repositories` contracts. Use the Prisma adapter for PostgreSQL and the in-memory adapter for deterministic tests/local operation. API routes must require server-side authentication and production membership checks; never trust client-supplied roles or IDs as authorization. Keep Prisma and credentials server-side.
+
+## SceneForge AI Milestone 4
+
+Use Auth.js only through `lib/auth/authjs.ts` and preserve the `AuthAdapter` boundary. Keep `AUTH_MODE=mock` explicit for local/tests and reject it in production unless intentionally configured. Provision users by provider subject and verified email. Keep production CRUD authorization in `ProductionService`; API handlers should not invent role checks. Never add provider credentials or `.env.local` files to the repository.
