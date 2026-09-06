@@ -427,12 +427,37 @@ model GeneratedAsset {
   provider        String
   fingerprint     String
   version         Int      @default(1)
+  parentAssetId   String?
+  preferred       Boolean  @default(false)
+  supersededAt    DateTime?
   reviewStatus    String   @default("pending")
   generationJob   GenerationJob @relation(fields: [generationJobId], references: [id], onDelete: Cascade)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  reviews         MediaReview[]
 
   @@index([seriesId, episodeId, sceneId, shotId])
+}
+
+model MediaReview {
+  id                    String   @id
+  seriesId              String
+  episodeId             String
+  sceneId               String
+  shotId                String
+  generationJobId       String
+  assetId               String
+  reviewerActor         String
+  status                String
+  notes                 String?
+  rejectionReason       String?
+  continuityAssessment  String
+  asset                 GeneratedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  reviewedAt            DateTime?
+
+  @@index([seriesId, episodeId, sceneId, shotId, assetId])
 }
 
 model DramaEvaluation {

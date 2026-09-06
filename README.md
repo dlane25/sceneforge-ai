@@ -25,6 +25,8 @@
 
  Milestone 7 adds the approval-governed mock media lifecycle: prepare, estimate, approve, queue, process, complete, and review generated assets. See [docs/MEDIA_PROVIDER_PIPELINE.md](docs/MEDIA_PROVIDER_PIPELINE.md).
 
+ Milestone 8 adds generated asset review, immutable version history, approval/rejection records, and preferred asset selection. See [docs/MEDIA_REVIEW_WORKFLOW.md](docs/MEDIA_REVIEW_WORKFLOW.md).
+
  ## Run Locally
 
  ```bash

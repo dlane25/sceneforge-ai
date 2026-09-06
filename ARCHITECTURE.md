@@ -248,6 +248,10 @@ Shots and storyboard placeholders extend the persisted `Series -> Episode -> Sce
 
 `GenerationService` coordinates provider-neutral shot generation through repository contracts. It snapshots prompts and estimates cost before creating an `awaiting_approval` job, then permits owner-governed execution only after approval. `GeneratedAsset` records provider-neutral output metadata. The mock provider never calls the network and supports deterministic status, cancel, retry, and mock asset behavior.
 
+## Milestone 8 Media Review
+
+`MediaReviewService` persists human review decisions and asset selection through repository contracts. Assets remain historical; only approved assets may become preferred, replacing and superseding a prior preferred version without deletion. Review records retain actor, notes, rejection reason, and continuity assessment. Agents remain read-only consumers of this provider-neutral state.
+
 ## Milestone 2 AI Orchestration
 
 The production pipeline is explicit and auditable:
