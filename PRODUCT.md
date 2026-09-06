@@ -247,6 +247,12 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Persisted generation jobs and generated assets
 ✓ Cost estimation, retry, and generated asset review states
 
+### Milestone 8 (Current)
+✓ Human media review and rejection workflow
+✓ Asset version history and preferred asset selection
+✓ Continuity-aware approval enforcement
+✓ Deterministic metadata comparison and review audit history
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters

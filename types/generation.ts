@@ -49,7 +49,30 @@ export interface GeneratedAsset {
   provider: string;
   fingerprint: string;
   version: number;
+  parentAssetId?: string;
+  preferred?: boolean;
+  supersededAt?: Date;
   reviewStatus: 'pending' | 'approved' | 'rejected';
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface MediaReview {
+  id: string;
+  seriesId: string;
+  episodeId: string;
+  sceneId: string;
+  shotId: string;
+  generationJobId: string;
+  assetId: string;
+  reviewerActor: string;
+  status: 'pending' | 'approved' | 'rejected' | 'superseded';
+  notes?: string;
+  rejectionReason?: string;
+  continuityAssessment: 'clear' | 'warnings' | 'blocked';
+  createdAt: Date;
+  updatedAt: Date;
+  reviewedAt?: Date;
+}
+
+export interface MediaReviewInput { notes?: string; rejectionReason?: string; }

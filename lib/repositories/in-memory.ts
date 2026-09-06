@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import { EMPIRE_OF_LIES_CHARACTERS, EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, PipelineStageStatus, SeriesInput } from './contracts';
 
@@ -23,6 +23,7 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   private storyboards = new Map<string, Storyboard>();
   private generationJobs = new Map<string, GenerationJob>();
   private assets = new Map<string, GeneratedAsset>();
+  private reviews = new Map<string, MediaReview>();
 
   constructor() {
     this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() }));
@@ -84,6 +85,10 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   async listGenerationJobs(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GenerationJob[]> { return [...this.generationJobs.values()].filter((job) => job.seriesId === seriesId && job.episodeId === episodeId && job.sceneId === sceneId && job.shotId === shotId).map(clone); }
   async createGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset> { this.assets.set(asset.id, clone(asset)); return clone(asset); }
   async listGeneratedAssets(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GeneratedAsset[]> { return [...this.assets.values()].filter((asset) => asset.seriesId === seriesId && asset.episodeId === episodeId && asset.sceneId === sceneId && asset.shotId === shotId).map(clone); }
+  async getGeneratedAsset(seriesId: string, episodeId: string, sceneId: string, shotId: string, assetId: string): Promise<GeneratedAsset | undefined> { const value = this.assets.get(assetId); return value?.seriesId === seriesId && value.episodeId === episodeId && value.sceneId === sceneId && value.shotId === shotId ? clone(value) : undefined; }
+  async updateGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset> { if (!this.assets.has(asset.id)) throw new Error(`Asset ${asset.id} was not found`); this.assets.set(asset.id, clone(asset)); return clone(asset); }
+  async createMediaReview(review: MediaReview): Promise<MediaReview> { this.reviews.set(review.id, clone(review)); return clone(review); }
+  async listMediaReviews(seriesId: string, episodeId: string, sceneId: string, shotId: string, assetId?: string): Promise<MediaReview[]> { return [...this.reviews.values()].filter((review) => review.seriesId === seriesId && review.episodeId === episodeId && review.sceneId === sceneId && review.shotId === shotId && (!assetId || review.assetId === assetId)).map(clone); }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
   async get(id: string): Promise<PipelineRun | undefined> { const value = this.pipelines.get(id); return value ? clone(value) : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
@@ -104,7 +109,7 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
       return true;
     });
   }
-  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.generationJobs.clear(); this.assets.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
+  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.generationJobs.clear(); this.assets.clear(); this.reviews.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
 }
 
 export const memoryRepository = new InMemoryPersistenceRepository();

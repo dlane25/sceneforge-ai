@@ -29,5 +29,5 @@ export type {
   ContinuitySubjectType,
   StoryFactInput,
 } from './continuity';
-export type { GenerationJob, GenerationJobStatus, GenerationType, GeneratedAsset, AssetType } from './generation';
+export type { GenerationJob, GenerationJobStatus, GenerationType, GeneratedAsset, AssetType, MediaReview, MediaReviewInput } from './generation';
 export type { DramaScore } from './drama';

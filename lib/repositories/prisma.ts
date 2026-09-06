@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, RepositoryRole, PipelineStageStatus, SeriesInput } from './contracts';
 import { EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 
@@ -81,6 +81,10 @@ export class PrismaPersistenceRepository implements PersistenceRepository {
   async listGenerationJobs(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GenerationJob[]> { const values = await this.db.generationJob.findMany({ where: { seriesId, episodeId, sceneId, shotId } }); return values as unknown as GenerationJob[]; }
   async createGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset> { await this.db.generatedAsset.create({ data: asset as never }); return asset; }
   async listGeneratedAssets(seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<GeneratedAsset[]> { const values = await this.db.generatedAsset.findMany({ where: { seriesId, episodeId, sceneId, shotId } }); return values as unknown as GeneratedAsset[]; }
+  async getGeneratedAsset(seriesId: string, episodeId: string, sceneId: string, shotId: string, assetId: string): Promise<GeneratedAsset | undefined> { const value = await this.db.generatedAsset.findFirst({ where: { id: assetId, seriesId, episodeId, sceneId, shotId } }); return value as unknown as GeneratedAsset | undefined; }
+  async updateGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset> { const value = await this.db.generatedAsset.update({ where: { id: asset.id }, data: asset as never }); return value as unknown as GeneratedAsset; }
+  async createMediaReview(review: MediaReview): Promise<MediaReview> { const value = await this.db.mediaReview.create({ data: review as never }); return value as unknown as MediaReview; }
+  async listMediaReviews(seriesId: string, episodeId: string, sceneId: string, shotId: string, assetId?: string): Promise<MediaReview[]> { const values = await this.db.mediaReview.findMany({ where: { seriesId, episodeId, sceneId, shotId, ...(assetId ? { assetId } : {}) }, orderBy: { createdAt: 'asc' } }); return values as unknown as MediaReview[]; }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.create({ data: { id: pipeline.id, seriesId: pipeline.seriesId, episodeId: pipeline.episodeId, initiatedById: pipeline.initiatedById, state: pipeline.state, output: pipeline as object, error: pipeline.error } }); return pipeline; }
   async get(id: string): Promise<PipelineRun | undefined> { const value = await this.db.pipelineRun.findUnique({ where: { id } }); return value?.output ? value.output as unknown as PipelineRun : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.update({ where: { id: pipeline.id }, data: { state: pipeline.state, output: pipeline as object, generationJobId: pipeline.generationJobId, error: pipeline.error } }); return pipeline; }
