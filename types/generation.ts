@@ -1,5 +1,5 @@
 export type GenerationJobStatus = 'draft' | 'awaiting_approval' | 'approved' | 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'rejected';
-export type GenerationType = 'video' | 'image-to-video' | 'extension';
+export type GenerationType = 'video' | 'image' | 'image-to-video' | 'extension';
 export type AssetType = 'storyboard-image' | 'generated-image' | 'video-clip' | 'audio' | 'captions' | 'final-render';
 
 export interface GenerationJob {
@@ -10,7 +10,7 @@ export interface GenerationJob {
   shotId: string;
   provider: string;
   providerJobId?: string;
-  model: string;
+  providerModel?: string;
   generationType: GenerationType;
   status: GenerationJobStatus;
   promptVersion: string;
@@ -18,7 +18,7 @@ export interface GenerationJob {
   promptSnapshot: string;
   negativePromptSnapshot?: string;
   durationSeconds: number;
-  aspectRatio: '9:16';
+  aspectRatio: '9:16' | '16:9' | '1:1';
   estimatedCost: number;
   actualCost: number;
   retryCount: number;
@@ -31,6 +31,10 @@ export interface GenerationJob {
   completedAt?: Date;
   cancelledAt?: Date;
   updatedAt: Date;
+  lastPolledAt?: Date;
+  lastProviderStatus?: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'polling_error';
+  lastProviderError?: string;
+  failedAt?: Date;
 }
 
 export interface GeneratedAsset {
@@ -42,17 +46,30 @@ export interface GeneratedAsset {
   shotId: string;
   assetType: AssetType;
   uri: string;
+  storageUri?: string;
   mimeType: string;
   width: number;
   height: number;
   durationSeconds?: number;
+  fileSize?: number;
   provider: string;
+  providerJobId?: string;
+  providerModel?: string;
   fingerprint: string;
+  checksum?: string;
   version: number;
   parentAssetId?: string;
   preferred?: boolean;
   supersededAt?: Date;
   reviewStatus: 'pending' | 'approved' | 'rejected';
+  generationParameters?: Record<string, unknown>;
+  promptSnapshot?: string;
+  negativePromptSnapshot?: string;
+  costMetadata?: {
+    estimatedCost: number;
+    actualCost: number;
+    currency?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

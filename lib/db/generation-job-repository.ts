@@ -63,7 +63,7 @@ export class GenerationJobRepository {
     }
 
     if (filter.model) {
-      results = results.filter((job) => job.model === filter.model);
+      results = results.filter((job) => job.providerModel === filter.model);
     }
 
     // Apply offset and limit
