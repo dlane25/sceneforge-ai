@@ -117,3 +117,7 @@ Schema generation and validation are safe development operations. Milestone 11 d
 ## Production limitations
 
 The local adapter requires a compatible FFmpeg binary installed by the operator and accessible through `FFMPEG_PATH`. This repository does not bundle FFmpeg, download media, sign object URLs, create a cloud render farm, publish to social platforms, add a CDN, perform professional color work, or implement advanced music/SFX/DAW features. HTTPS inputs depend on the operator's FFmpeg build and network policy. Tests never run FFmpeg or call external providers.
+
+## Production launch handoff
+
+Milestone 12 requires the preferred assembly to remain approved/valid and its completed export to retain safe, complete metadata. A delivery manifest and final launch package snapshot those exact versions, captions, selected asset review states, approvals, rights, continuity summary, and readiness checks. A changed input produces a new package rather than mutating approved history. The production container installs FFmpeg intentionally and runs the same non-shell adapter as Milestone 11. See [PRODUCTION_LAUNCH.md](PRODUCTION_LAUNCH.md).

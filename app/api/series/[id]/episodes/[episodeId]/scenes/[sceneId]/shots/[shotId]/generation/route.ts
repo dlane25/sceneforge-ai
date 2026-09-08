@@ -3,15 +3,17 @@ import { requireUser } from '@/lib/auth';
 import { apiError } from '@/lib/api';
 import { generationService } from '@/lib/media';
 import { generationRouteParamsSchema } from '@/lib/media/api-schemas';
+import { enforceCostlyAction } from '@/lib/security/rate-limit';
 
 type Context = { params: Promise<{ id: string; episodeId: string; sceneId: string; shotId: string }> };
 
-export async function POST(_request: Request, { params }: Context) {
+export async function POST(request: Request, { params }: Context) {
   try {
     const { user } = await requireUser();
     const p = generationRouteParamsSchema.parse(await params);
+    await enforceCostlyAction(user.id, p.id, 'generation');
     return NextResponse.json({ data: await generationService.prepare(user, p.id, p.episodeId, p.sceneId, p.shotId) }, { status: 201 });
-  } catch (error) { return apiError(error, 'GENERATION_PREPARE_FAILED', 'Unable to prepare generation'); }
+  } catch (error) { return apiError(error, 'GENERATION_PREPARE_FAILED', 'Unable to prepare generation', request); }
 }
 
 export async function GET(_request: Request, { params }: Context) {

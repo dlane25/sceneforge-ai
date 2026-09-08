@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MockVideoProvider } from '@/lib/video/mock-provider';
-import type { CaptionTrack, EpisodeAssembly, EpisodeExportJob, GenerationJob, GeneratedAsset } from '@/types';
+import type { CaptionTrack, EpisodeAssembly, EpisodeExportJob, EpisodeLaunchPackage, GenerationJob, GeneratedAsset } from '@/types';
 import type { PersistenceRepository } from '@/lib/repositories';
 
 // Mock repository for testing
@@ -163,6 +163,10 @@ class MockPersistenceRepository implements PersistenceRepository {
   async getEpisodeExportJob() { return undefined; }
   async listEpisodeExportJobs() { return []; }
   async updateEpisodeExportJob(job: EpisodeExportJob) { return job; }
+  async createEpisodeLaunchPackage(value: EpisodeLaunchPackage) { return value; }
+  async getEpisodeLaunchPackage() { return undefined; }
+  async listEpisodeLaunchPackages() { return []; }
+  async updateEpisodeLaunchPackage(value: EpisodeLaunchPackage) { return value; }
   
   // PipelineRepository methods
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

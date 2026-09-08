@@ -1,7 +1,6 @@
 import { ContinuityAgent, DirectorAgent, ScoringAgent, ShowrunnerAgent, WriterAgent } from '@/lib/agents';
 import type { AgentContext, AgentExecution } from '@/lib/agents';
 import { createMemorySnapshot } from '@/lib/agents/memory-snapshot';
-import { runtimeRepository } from '@/lib/repositories';
 import type { PersistenceRepository } from '@/lib/repositories';
 import { EMPIRE_OF_LIES_CONTINUITY_FACTS, EMPIRE_OF_LIES_SERIES, EMPIRE_OF_LIES_STORY_FACTS, createEmpireOfLiesEpisodes } from '@/lib/mock';
 import { MockVideoProvider } from '@/lib/video/mock-provider';
@@ -31,7 +30,7 @@ function update(pipeline: PipelineRun, state: PipelineState): void {
 }
 
 export class OrchestrationService {
-  constructor(private readonly repository: PersistenceRepository = runtimeRepository) {}
+  constructor(private readonly repository: PersistenceRepository) {}
 
   async run(episodeId = 'ep_1', seriesId = EMPIRE_OF_LIES_SERIES.id, initiatedById = 'demo-user'): Promise<PipelineRun> {
     episodeId = episodeId.startsWith('ep_') ? episodeId : `ep_${episodeId}`;
@@ -142,5 +141,3 @@ export class OrchestrationService {
     await this.repository.update(pipeline);
   }
 }
-
-export const orchestrationService = new OrchestrationService();

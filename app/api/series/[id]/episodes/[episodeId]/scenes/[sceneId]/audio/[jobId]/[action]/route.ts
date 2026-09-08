@@ -4,11 +4,13 @@ import { apiError } from '@/lib/api';
 import { audioGenerationService, mediaReviewService } from '@/lib/media';
 import { productionService } from '@/lib/series';
 import { sceneAudioActionBodySchema, sceneAudioActionParamsSchema } from '@/lib/media/api-schemas';
+import { enforceCostlyAction } from '@/lib/security/rate-limit';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string; episodeId: string; sceneId: string; jobId: string; action: string }> }) {
   try {
     const { user } = await requireUser();
     const p = sceneAudioActionParamsSchema.parse(await params);
+    if (p.action === 'start' || p.action === 'retry') await enforceCostlyAction(user.id, p.id, p.action === 'retry' ? 'retry' : 'audio');
     const body = sceneAudioActionBodySchema.parse(await request.json().catch(() => ({})));
     const ids = [p.id, p.episodeId, p.sceneId];
     const jobActions = {
@@ -26,5 +28,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (p.action === 'asset-approve') return NextResponse.json({ data: await mediaReviewService.submitReview(user, shotIds, body.assetId, 'approved', { notes: body.notes }) });
     if (p.action === 'asset-reject') return NextResponse.json({ data: await mediaReviewService.submitReview(user, shotIds, body.assetId, 'rejected', { notes: body.notes, rejectionReason: body.rejectionReason || 'Rejected during audio review.' }) });
     return NextResponse.json({ data: await mediaReviewService.selectPreferredAsset(user, shotIds, body.assetId) });
-  } catch (error) { return apiError(error, 'AUDIO_ACTION_FAILED', 'Unable to update scene audio'); }
+  } catch (error) { return apiError(error, 'AUDIO_ACTION_FAILED', 'Unable to update scene audio', request); }
 }

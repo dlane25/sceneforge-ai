@@ -59,3 +59,7 @@ git diff --check
 ```
 
 No migration, database push, deployment, or real-provider call is part of this milestone.
+
+## Production launch gate
+
+Milestone 12 configuration readiness requires explicit non-mock image, video, and audio selections and reports missing configuration key names without reading providers over the network. Costly preparation/submission routes are rate-limited by authenticated user and series. Provider failures appear in unified operations and block episode launch when no completed replacement remediates them. Liveness, readiness, startup checks, CI, and tests never call a paid provider. See [PRODUCTION_LAUNCH.md](PRODUCTION_LAUNCH.md).

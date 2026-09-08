@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeAssembly, EpisodeExportJob, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeAssembly, EpisodeExportJob, EpisodeInput, EpisodeLaunchPackage, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, ProductionReadinessReport, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, RepositoryRole, PipelineStageStatus, SeriesInput } from './contracts';
 import { EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 
@@ -14,6 +14,15 @@ function voiceProfileFromJson(value: unknown): Character['voiceProfile'] {
     updatedAt: toDate(profile.updatedAt),
     rights: profile.rights ? { ...profile.rights, confirmedAt: toDate(profile.rights.confirmedAt) } : undefined,
   };
+}
+
+function readinessFromJson(value: unknown): ProductionReadinessReport {
+  const report = value as ProductionReadinessReport;
+  return { ...report, checkedAt: new Date(report.checkedAt), checks: report.checks.map((check) => ({ ...check, checkedAt: new Date(check.checkedAt) })) };
+}
+
+function launchPackageFromRecord(value: Record<string, unknown>): EpisodeLaunchPackage {
+  return { ...value, readinessSnapshot: readinessFromJson(value.readinessSnapshot), rightsAttestations: value.rightsAttestations, approvalSummary: value.approvalSummary, continuitySummary: value.continuitySummary } as unknown as EpisodeLaunchPackage;
 }
 
 function voiceProfileToJson(profile: Character['voiceProfile']): object {
@@ -130,6 +139,10 @@ export class PrismaPersistenceRepository implements PersistenceRepository {
   async getEpisodeExportJob(seriesId: string, episodeId: string, jobId: string): Promise<EpisodeExportJob | undefined> { const value = await this.db.episodeExportJob.findFirst({ where: { id: jobId, seriesId, episodeId } }); return value as unknown as EpisodeExportJob | undefined; }
   async listEpisodeExportJobs(seriesId: string, episodeId: string): Promise<EpisodeExportJob[]> { const values = await this.db.episodeExportJob.findMany({ where: { seriesId, episodeId }, orderBy: { exportVersion: 'asc' } }); return values as unknown as EpisodeExportJob[]; }
   async updateEpisodeExportJob(job: EpisodeExportJob): Promise<EpisodeExportJob> { const value = await this.db.episodeExportJob.update({ where: { id: job.id }, data: job as never }); return value as unknown as EpisodeExportJob; }
+  async createEpisodeLaunchPackage(input: EpisodeLaunchPackage): Promise<EpisodeLaunchPackage> { const { manifest, approvalHistory, readinessSnapshot, ...record } = input; const value = await this.db.episodeLaunchPackage.create({ data: { ...record, readinessSnapshot: readinessSnapshot as never, manifest: { create: manifest }, approvalHistory: { create: approvalHistory.map(({ packageId, ...approval }) => { void packageId; return approval; }) } } as never, include: { manifest: true, approvalHistory: { orderBy: { decidedAt: 'asc' } } } }); return launchPackageFromRecord(value as unknown as Record<string, unknown>); }
+  async getEpisodeLaunchPackage(seriesId: string, episodeId: string, packageId: string): Promise<EpisodeLaunchPackage | undefined> { const value = await this.db.episodeLaunchPackage.findFirst({ where: { id: packageId, seriesId, episodeId }, include: { manifest: true, approvalHistory: { orderBy: { decidedAt: 'asc' } } } }); return value ? launchPackageFromRecord(value as unknown as Record<string, unknown>) : undefined; }
+  async listEpisodeLaunchPackages(seriesId: string, episodeId: string): Promise<EpisodeLaunchPackage[]> { const values = await this.db.episodeLaunchPackage.findMany({ where: { seriesId, episodeId }, include: { manifest: true, approvalHistory: { orderBy: { decidedAt: 'asc' } } }, orderBy: { version: 'asc' } }); return values.map((value) => launchPackageFromRecord(value as unknown as Record<string, unknown>)); }
+  async updateEpisodeLaunchPackage(input: EpisodeLaunchPackage): Promise<EpisodeLaunchPackage> { const { manifest, approvalHistory, readinessSnapshot, ...record } = input; const value = await this.db.$transaction(async (database) => { await database.launchApprovalRecord.deleteMany({ where: { packageId: input.id } }); return database.episodeLaunchPackage.update({ where: { id: input.id }, data: { ...record, readinessSnapshot: readinessSnapshot as never, manifest: { update: manifest }, approvalHistory: { create: approvalHistory.map(({ packageId, ...approval }) => { void packageId; return approval; }) } } as never, include: { manifest: true, approvalHistory: { orderBy: { decidedAt: 'asc' } } } }); }); return launchPackageFromRecord(value as unknown as Record<string, unknown>); }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.create({ data: { id: pipeline.id, seriesId: pipeline.seriesId, episodeId: pipeline.episodeId, initiatedById: pipeline.initiatedById, state: pipeline.state, output: pipeline as object, error: pipeline.error } }); return pipeline; }
   async get(id: string): Promise<PipelineRun | undefined> { const value = await this.db.pipelineRun.findUnique({ where: { id } }); return value?.output ? value.output as unknown as PipelineRun : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.update({ where: { id: pipeline.id }, data: { state: pipeline.state, output: pipeline as object, generationJobId: pipeline.generationJobId, error: pipeline.error } }); return pipeline; }

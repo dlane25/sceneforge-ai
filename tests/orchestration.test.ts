@@ -3,10 +3,13 @@ import { DeterministicAgent } from '@/lib/agents';
 import type { AgentContext } from '@/lib/agents';
 import { OrchestrationService } from '@/lib/orchestration';
 import { EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
+import { InMemoryPersistenceRepository } from '@/lib/repositories';
+
+function createService(): OrchestrationService { return new OrchestrationService(new InMemoryPersistenceRepository()); }
 
 describe('orchestration service', () => {
   it('runs the complete pipeline and stops for human approval', async () => {
-    const service = new OrchestrationService();
+    const service = createService();
     const pipeline = await service.run('ep_1');
 
     expect(pipeline.state).toBe('READY_FOR_APPROVAL');
@@ -17,7 +20,7 @@ describe('orchestration service', () => {
   });
 
   it('detects the intentional continuity mismatch in the pipeline', async () => {
-    const service = new OrchestrationService();
+    const service = createService();
     const pipeline = await service.run('ep_1');
 
     expect(pipeline.continuity?.passed).toBe(false);
@@ -25,7 +28,7 @@ describe('orchestration service', () => {
   });
 
   it('cannot queue generation before approval, then queues after approval', async () => {
-    const service = new OrchestrationService();
+    const service = createService();
     const pipeline = await service.run('ep_1');
 
     await expect(service.queueGeneration(pipeline.id)).rejects.toThrow('Human approval is required');
@@ -36,7 +39,7 @@ describe('orchestration service', () => {
   });
 
   it('records rejection without starting generation', async () => {
-    const service = new OrchestrationService();
+    const service = createService();
     const pipeline = await service.run('ep_1');
     const rejected = await service.reject(pipeline.id, 'Revise the hook');
 

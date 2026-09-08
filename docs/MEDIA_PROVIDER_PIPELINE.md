@@ -46,3 +46,7 @@ Milestone 11 consumes reviewed `GeneratedAsset` records without changing provide
 ## Limitations
 
 Production adapters submit only after owner approval and require explicit provider configuration. Milestone 11 adds basic local FFmpeg composition, but no music generation, SFX editor, audio upload library, advanced mix, billing, cloud rendering, distribution, or deployment. Provider output may be a data URI or configured storage URI; this milestone does not add durable binary-object storage or URL signing.
+
+## Launch operations
+
+Milestone 12 normalizes media and audio jobs with export jobs in the authenticated operations view. Stable stale thresholds identify old approvals, queues, and processing states without automatic mutation. Unresolved failed jobs and open approval gates block launch; retry remains limited, evidence-preserving, and reapproval-gated. See [PRODUCTION_LAUNCH.md](PRODUCTION_LAUNCH.md).
