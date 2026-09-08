@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MockVideoProvider } from '@/lib/video/mock-provider';
-import type { GenerationJob, GeneratedAsset } from '@/types';
+import type { CaptionTrack, GenerationJob, GeneratedAsset } from '@/types';
 import type { PersistenceRepository } from '@/lib/repositories';
 
 // Mock repository for testing
@@ -151,6 +151,10 @@ class MockPersistenceRepository implements PersistenceRepository {
   async getMediaReview() { return undefined; }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async updateMediaReview() { return {} as any; }
+  async createCaptionTrack(track: CaptionTrack) { return track; }
+  async getCaptionTrack() { return undefined; }
+  async listCaptionTracks() { return []; }
+  async updateCaptionTrack(track: CaptionTrack) { return track; }
   
   // PipelineRepository methods
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

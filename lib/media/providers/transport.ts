@@ -45,6 +45,22 @@ export interface VertexVideoTransport {
   getVideoGenerationStatus(jobId: string): Promise<TransportStatus>;
 }
 
+export interface SpeechTransport {
+  submitSpeechGeneration(request: {
+    text: string;
+    voiceId: string;
+    model: string;
+    language?: string;
+    locale?: string;
+    stability?: number;
+    similarityBoost?: number;
+    styleExaggeration?: number;
+    speakerBoost?: boolean;
+    outputFormat: string;
+  }): Promise<TransportSubmission>;
+  getSpeechGenerationStatus(jobId: string): Promise<TransportStatus>;
+}
+
 function stableHash(value: string): string {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -113,5 +129,30 @@ export class FakeVertexVideoTransport implements VertexVideoTransport {
         metadata: { transport: 'fake', model: request.model },
       },
     };
+  }
+}
+
+export class FakeSpeechTransport implements SpeechTransport {
+  private readonly jobs = new Map<string, TransportStatus>();
+  private sequence = 0;
+
+  async submitSpeechGeneration(request: Parameters<SpeechTransport['submitSpeechGeneration']>[0]): Promise<TransportSubmission> {
+    this.sequence += 1;
+    const fingerprint = stableHash(JSON.stringify(request));
+    const jobId = `fake-speech-${fingerprint}-${this.sequence}`;
+    const durationSeconds = Math.max(0.5, Number((request.text.trim().split(/\s+/).length / 2.5).toFixed(2)));
+    const output: ProviderOutput = {
+      uri: `fake://audio/${jobId}.mp3`, storageUri: `fake://audio/${jobId}.mp3`, mimeType: 'audio/mpeg', width: 0, height: 0,
+      durationSeconds, fileSize: Math.ceil(durationSeconds * 16_000), checksum: stableHash(jobId), codec: 'mp3', sampleRate: 44_100, bitrate: 128_000, channels: 1,
+      metadata: { transport: 'fake', model: request.model, voiceId: request.voiceId, serialization: JSON.stringify(request) },
+    };
+    const actualCost = Number((request.text.length * 0.00003).toFixed(4));
+    const status: TransportStatus = { status: 'succeeded', progress: 100, output, actualCost, metadata: { synchronous: true } };
+    this.jobs.set(jobId, status);
+    return { jobId, status: 'succeeded', estimatedCost: actualCost, actualCost, output, metadata: { synchronous: true } };
+  }
+
+  async getSpeechGenerationStatus(jobId: string): Promise<TransportStatus> {
+    return this.jobs.get(jobId) || { status: 'failed', errorCode: 'NOT_FOUND', errorMessage: 'Speech job was not found' };
   }
 }

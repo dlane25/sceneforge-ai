@@ -3,6 +3,10 @@ export type {
   Character,
   CharacterRole,
   VoiceProfile,
+  VoiceRightsMetadata,
+  VoiceReferenceMetadata,
+  VoiceSourceType,
+  VoiceRightsApprovalState,
   CharacterRelationship,
   CharacterInput,
 } from './character';
@@ -29,5 +33,5 @@ export type {
   ContinuitySubjectType,
   StoryFactInput,
 } from './continuity';
-export type { GenerationJob, GenerationJobStatus, GenerationType, GeneratedAsset, AssetType, MediaReview, MediaReviewInput } from './generation';
+export type { GenerationJob, GenerationJobStatus, GenerationType, GeneratedAsset, AssetType, MediaReview, MediaReviewInput, CaptionTrack, CaptionSegment, CaptionFormat, CaptionReviewStatus } from './generation';
 export type { DramaScore } from './drama';

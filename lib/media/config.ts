@@ -11,7 +11,9 @@ export interface MediaProviderConfig {
 export interface GenerationConfig {
   imageProvider: ProviderId;
   videoProvider: ProviderId;
+  audioProvider: ProviderId;
   geminiModel: string;
+  defaultAudioLanguage: string;
   providers: Record<ProviderId, ProviderConfig>;
 }
 
@@ -29,13 +31,14 @@ export function loadGenerationConfig(env: Environment = process.env): Generation
   const fallback = env.MEDIA_PROVIDER || testDefault(env);
   const imageProvider = providerId(env.IMAGE_PROVIDER || fallback, 'IMAGE_PROVIDER');
   const videoProvider = providerId(env.VIDEO_PROVIDER || fallback, 'VIDEO_PROVIDER');
+  const audioProvider = providerId(env.AUDIO_PROVIDER || fallback, 'AUDIO_PROVIDER');
   const strict = env.NODE_ENV === 'production';
-  if (strict && (imageProvider === 'mock' || videoProvider === 'mock')) throw new Error('Mock media providers are not allowed in production');
+  if (strict && (imageProvider === 'mock' || videoProvider === 'mock' || audioProvider === 'mock')) throw new Error('Mock media providers are not allowed in production');
 
   const imageModel = env.GEMINI_IMAGE_MODEL || (env.NODE_ENV === 'test' ? 'mock-v1' : 'gemini-3.1-flash-image');
   const videoModel = env.VERTEX_VIDEO_MODEL || (env.NODE_ENV === 'test' ? 'mock-v1' : 'veo-3.1-generate-001');
   const providers: Record<ProviderId, ProviderConfig> = {
-    mock: { imageModel: 'mock-v1', videoModel: 'mock-v1' },
+    mock: { imageModel: 'mock-v1', videoModel: 'mock-v1', audioModel: 'mock-v1', outputFormat: 'mp3_44100_128' },
     'gemini-image': {
       apiKey: env.GEMINI_API_KEY || env.MEDIA_PROVIDER_API_KEY,
       imageModel,
@@ -47,6 +50,12 @@ export function loadGenerationConfig(env: Environment = process.env): Generation
       outputStorageUri: env.VERTEX_OUTPUT_STORAGE_URI || env.GOOGLE_CLOUD_VIDEO_OUTPUT_URI,
       videoModel,
       endpoint: env.VERTEX_API_ENDPOINT,
+    },
+    'elevenlabs-voice': {
+      apiKey: env.ELEVENLABS_API_KEY,
+      audioModel: env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2',
+      outputFormat: env.ELEVENLABS_OUTPUT_FORMAT || 'mp3_44100_128',
+      endpoint: env.ELEVENLABS_API_ENDPOINT,
     },
   };
   if (strict) {
@@ -61,9 +70,13 @@ export function loadGenerationConfig(env: Environment = process.env): Generation
       if (!providers['vertex-video'].outputStorageUri) errors.push('VERTEX_OUTPUT_STORAGE_URI is required for the configured video provider');
       if (!providers['vertex-video'].videoModel) errors.push('VERTEX_VIDEO_MODEL is required for the configured video provider');
     }
+    if (audioProvider === 'elevenlabs-voice') {
+      if (!providers['elevenlabs-voice'].apiKey) errors.push('ELEVENLABS_API_KEY is required for the configured audio provider');
+      if (!providers['elevenlabs-voice'].audioModel) errors.push('ELEVENLABS_MODEL_ID is required for the configured audio provider');
+    }
     if (errors.length) throw new Error(`Provider configuration is invalid: ${errors.join('; ')}`);
   }
-  return { imageProvider, videoProvider, geminiModel: env.GEMINI_MODEL || 'gemini-2.5-flash', providers };
+  return { imageProvider, videoProvider, audioProvider, geminiModel: env.GEMINI_MODEL || 'gemini-2.5-flash', defaultAudioLanguage: env.DEFAULT_AUDIO_LANGUAGE || 'en', providers };
 }
 
 export function loadMediaProviderConfig(env: Environment = process.env): MediaProviderConfig {
@@ -85,6 +98,10 @@ export function validateProviderConfig(config: MediaProviderConfig): string[] {
     if (!config.config.location) errors.push('Google Cloud location is required');
     if (!config.config.outputStorageUri) errors.push('Google Cloud video output URI is required');
     if (!config.config.videoModel) errors.push('Vertex video model is required');
+  }
+  if (config.providerId === 'elevenlabs-voice') {
+    if (!config.config.apiKey) errors.push('ElevenLabs API key is required');
+    if (!config.config.audioModel) errors.push('ElevenLabs model is required');
   }
   return errors;
 }

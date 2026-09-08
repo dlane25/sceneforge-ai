@@ -85,6 +85,10 @@ Agent activity is recorded as an audit trail with concise explanations and confi
 
 Milestone 3 adds PostgreSQL-ready persistence for productions, memberships, characters, locations, episodes, Series Memory, orchestration runs, approvals, generation jobs, and scoring evaluations. A provider-neutral session boundary and production roles keep multiple users isolated. The local demo remains usable without PostgreSQL through deterministic in-memory repositories.
 
+### 10. Voice, Audio, and Captions
+
+Milestone 10 turns persisted shot dialogue into reviewable character audio. A character voice profile holds provider-neutral voice, language, style, and consent metadata. Owners review a snapshotted line and estimated cost before provider submission, then approve or reject each generated version and choose a preferred audio asset. Episode captions are generated deterministically as SRT or WebVTT from the shot timeline and follow their own review and preferred-version workflow.
+
 ## Workflow
 
 ```
@@ -259,6 +263,14 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Executable Gemini image and Vertex Veo adapters behind provider-neutral transports
 ✓ Approval-gated submission, idempotent polling, normalized errors, safe audit metadata, and provider-aware UI
 ✓ No network calls in tests; no migrations, deployments, or committed credentials
+
+### Milestone 10 (Current)
+✓ Typed character voice profiles and explicit rights/consent controls
+✓ Approval-gated line and scene speech generation with deterministic mock audio
+✓ Server-only ElevenLabs transport with fake-client contract tests
+✓ Audio metadata, review, regeneration, retry, and preferred versions
+✓ Deterministic SRT/WebVTT caption tracks with review and download
+✓ Nested authenticated APIs and integrated storyboard audio/caption UI
 
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema

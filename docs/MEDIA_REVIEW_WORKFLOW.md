@@ -4,7 +4,7 @@ Milestone 8 adds deterministic human review for generated shot assets.
 
 ## Lifecycle
 
-Completed generation creates an immutable `GeneratedAsset` with `reviewStatus: pending`. A reviewer submits an approved or rejected `MediaReview`; rejection requires a reason. Only approved assets may be selected as preferred. Selecting a replacement unsets and supersedes the former preferred version without deleting historical assets or reviews.
+Completed generation creates an immutable `GeneratedAsset` with `reviewStatus: pending`. A reviewer submits an approved or rejected `MediaReview`; rejection requires a reason. Only approved assets may be selected as preferred. Selecting a replacement unsets and supersedes the former preferred version of the same asset type without deleting historical assets or reviews, so preferred audio and video can coexist for a shot.
 
 ## Persistence and Governance
 
@@ -23,7 +23,7 @@ Completed generation creates an immutable `GeneratedAsset` with `reviewStatus: p
 
 ## Storyboard UI
 
-The shot production workspace includes a Media Review panel for every shot. Reviewers explicitly load the shot's generation history, readiness result, assets, and reviews. Each asset displays version, provider, originating job, duration, resolution, created timestamp, review state, and preferred marker. `mock://` assets render as safe metadata previews.
+The shot production workspace includes media review for visual and audio versions. Reviewers explicitly load generation history, readiness, assets, and reviews. Audio review shows character, safe provider voice ID, provider/model, dialogue snapshot, lifecycle, duration, encoding metadata, cost, review state, and preferred marker. Playable URIs use browser audio controls; `mock://` assets render as safe metadata previews.
 
 The panel exposes Approve, Reject, Mark Preferred, Compare Versions, and View History actions only when the state permits them. Approval is disabled when readiness reports blockers. Warnings and review notes/rejection reasons remain visible with the asset history. The comparison panel presents deterministic version metadata rather than attempting playback.
 
