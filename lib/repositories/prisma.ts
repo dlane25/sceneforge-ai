@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeAssembly, EpisodeExportJob, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, RepositoryRole, PipelineStageStatus, SeriesInput } from './contracts';
 import { EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 
@@ -111,6 +111,25 @@ export class PrismaPersistenceRepository implements PersistenceRepository {
     });
     return value as unknown as CaptionTrack;
   }
+  async createEpisodeAssembly(assembly: EpisodeAssembly): Promise<EpisodeAssembly> {
+    const { items, validationIssues, ...record } = assembly;
+    const value = await this.db.episodeAssembly.create({ data: { ...record, items: { create: items.map(({ assemblyId, ...item }) => { void assemblyId; return item; }) }, validationIssues: { create: validationIssues.map(({ assemblyId, ...issue }) => { void assemblyId; return issue; }) } } as never, include: { items: { orderBy: { sequence: 'asc' } }, validationIssues: true } });
+    return value as unknown as EpisodeAssembly;
+  }
+  async getEpisodeAssembly(seriesId: string, episodeId: string, assemblyId: string): Promise<EpisodeAssembly | undefined> { const value = await this.db.episodeAssembly.findFirst({ where: { id: assemblyId, seriesId, episodeId }, include: { items: { orderBy: { sequence: 'asc' } }, validationIssues: true } }); return value as unknown as EpisodeAssembly | undefined; }
+  async listEpisodeAssemblies(seriesId: string, episodeId: string): Promise<EpisodeAssembly[]> { const values = await this.db.episodeAssembly.findMany({ where: { seriesId, episodeId }, include: { items: { orderBy: { sequence: 'asc' } }, validationIssues: true }, orderBy: { version: 'asc' } }); return values as unknown as EpisodeAssembly[]; }
+  async updateEpisodeAssembly(assembly: EpisodeAssembly): Promise<EpisodeAssembly> {
+    const { items, validationIssues, ...record } = assembly; void items;
+    const value = await this.db.$transaction(async (database) => {
+      await database.assemblyValidationIssue.deleteMany({ where: { assemblyId: assembly.id } });
+      return database.episodeAssembly.update({ where: { id: assembly.id }, data: { ...record, validationIssues: { create: validationIssues.map(({ assemblyId, ...issue }) => { void assemblyId; return issue; }) } } as never, include: { items: { orderBy: { sequence: 'asc' } }, validationIssues: true } });
+    });
+    return value as unknown as EpisodeAssembly;
+  }
+  async createEpisodeExportJob(job: EpisodeExportJob): Promise<EpisodeExportJob> { const value = await this.db.episodeExportJob.create({ data: job as never }); return value as unknown as EpisodeExportJob; }
+  async getEpisodeExportJob(seriesId: string, episodeId: string, jobId: string): Promise<EpisodeExportJob | undefined> { const value = await this.db.episodeExportJob.findFirst({ where: { id: jobId, seriesId, episodeId } }); return value as unknown as EpisodeExportJob | undefined; }
+  async listEpisodeExportJobs(seriesId: string, episodeId: string): Promise<EpisodeExportJob[]> { const values = await this.db.episodeExportJob.findMany({ where: { seriesId, episodeId }, orderBy: { exportVersion: 'asc' } }); return values as unknown as EpisodeExportJob[]; }
+  async updateEpisodeExportJob(job: EpisodeExportJob): Promise<EpisodeExportJob> { const value = await this.db.episodeExportJob.update({ where: { id: job.id }, data: job as never }); return value as unknown as EpisodeExportJob; }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.create({ data: { id: pipeline.id, seriesId: pipeline.seriesId, episodeId: pipeline.episodeId, initiatedById: pipeline.initiatedById, state: pipeline.state, output: pipeline as object, error: pipeline.error } }); return pipeline; }
   async get(id: string): Promise<PipelineRun | undefined> { const value = await this.db.pipelineRun.findUnique({ where: { id } }); return value?.output ? value.output as unknown as PipelineRun : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { await this.db.pipelineRun.update({ where: { id: pipeline.id }, data: { state: pipeline.state, output: pipeline as object, generationJobId: pipeline.generationJobId, error: pipeline.error } }); return pipeline; }

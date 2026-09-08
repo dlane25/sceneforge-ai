@@ -272,6 +272,16 @@ The provider contract now declares speech, voice-cloning, optional sound-effects
 
 See [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
 
+## Milestone 11 Episode Assembly and Export
+
+`EpisodeAssemblyService` consumes only repository-backed episode hierarchy, reviewed media, and captions. It selects approved sources by a deterministic media-type-scoped rule, builds canonical cumulative timing, records selection reasons, and runs typed timeline validation. Input fingerprints prevent accidental duplicate versions while rebuilds preserve every historical version and owner review decision.
+
+`EpisodeExportService` snapshots an approved assembly and the typed vertical preset into an export job. Preparation is side-effect free; owner approval is required before engine submission, and retries create new approval-gated export versions. `ExportEngine` isolates mock and local FFmpeg execution from domain selection, persistence, and authorization.
+
+The FFmpeg transport is server-only and invokes a configured executable using an argument array with `shell: false`. Managed paths are confined to configured absolute roots, unsafe schemes and hosts are rejected, and public records contain normalized managed output metadata rather than server paths. Captions can be omitted, burned in, or retained as approved SRT/WebVTT sidecars. Generated dialogue replaces source-video audio deterministically; advanced mixing remains out of scope.
+
+See [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md).
+
 ## Milestone 2 AI Orchestration
 
 The production pipeline is explicit and auditable:

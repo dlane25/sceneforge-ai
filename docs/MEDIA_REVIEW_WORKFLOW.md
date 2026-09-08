@@ -37,4 +37,6 @@ The `MediaProvider` contract defines estimate, generation, status, and capabilit
 
 ## Limitations
 
-No final editing, uploads, billing, or external review notifications are included. Mock media remains metadata-only; production provider output is exposed as a safe URI and metadata without changing review governance.
+Milestone 11 assembly reads this immutable review history and accepts only approved assets; preferred selection remains scoped by media type. Rebuilding an assembly never rewrites or discards an asset review. See [EPISODE_ASSEMBLY_EXPORT.md](EPISODE_ASSEMBLY_EXPORT.md).
+
+No advanced editing, uploads, billing, distribution, or external review notifications are included. Mock media remains metadata-only; production provider output is exposed as a safe URI and metadata without changing review governance.

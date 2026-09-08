@@ -83,6 +83,8 @@ model Series {
   pipelines        PipelineRun[]
   generationJobs   GenerationJob[]
   captionTracks    CaptionTrack[]
+  episodeAssemblies EpisodeAssembly[]
+  episodeExportJobs EpisodeExportJob[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
@@ -162,6 +164,8 @@ model Episode {
   storyFacts  StoryFact[]
   generationJobs GenerationJob[]
   captionTracks CaptionTrack[]
+  assemblies EpisodeAssembly[]
+  exportJobs EpisodeExportJob[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -541,6 +545,146 @@ model CaptionSegment {
 
   @@unique([trackId, sequence])
   @@index([sceneId, shotId])
+}
+
+model EpisodeAssembly {
+  id                    String   @id
+  seriesId              String
+  episodeId             String
+  captionTrackId        String?
+  captionIncluded       Boolean
+  timelineDurationMs    Int
+  aspectRatio           String
+  width                 Int
+  height                Int
+  frameRate             Int
+  exportPreset          String
+  status                String
+  reviewState           String
+  reviewNotes           String?
+  reviewedBy            String?
+  reviewedAt            DateTime?
+  validationPassed      Boolean
+  validatedAt           DateTime?
+  inputHash             String
+  explanation           String
+  createdBy             String
+  version               Int
+  preferred             Boolean  @default(false)
+  rebuiltFromAssemblyId String?
+  supersededAt          DateTime?
+  generatedAt           DateTime
+  series                Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode               Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  items                 EpisodeAssemblyItem[]
+  validationIssues      AssemblyValidationIssue[]
+  exportJobs            EpisodeExportJob[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([episodeId, version])
+  @@index([seriesId, episodeId, preferred])
+  @@index([episodeId, inputHash])
+}
+
+model EpisodeAssemblyItem {
+  id                      String   @id
+  assemblyId              String
+  sequence                Int
+  sceneId                 String
+  shotId                  String
+  videoAssetId            String?
+  audioAssetId            String?
+  videoSelectionReason    String?
+  audioSelectionReason    String?
+  startMs                 Int
+  endMs                   Int
+  sourceVideoDurationMs   Int?
+  sourceAudioDurationMs   Int?
+  trimInMs                Int
+  trimOutMs               Int
+  transitionType          String
+  transitionDurationMs    Int
+  volume                  Float
+  muted                   Boolean
+  videoAudioPolicy        String
+  dialogueRequired        Boolean
+  assembly                EpisodeAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([assemblyId, sequence])
+  @@index([sceneId, shotId])
+}
+
+model AssemblyValidationIssue {
+  id          String   @id
+  assemblyId  String
+  code        String
+  severity    String
+  message     String
+  sequence    Int?
+  sceneId     String?
+  shotId      String?
+  assetId     String?
+  assembly    EpisodeAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+
+  @@index([assemblyId, severity, code])
+}
+
+model EpisodeExportJob {
+  id              String   @id
+  seriesId        String
+  episodeId       String
+  assemblyId      String
+  assemblyVersion Int
+  exportVersion   Int
+  preset          String
+  outputFormat    String
+  aspectRatio     String
+  width           Int
+  height          Int
+  frameRate       Int
+  videoCodec      String
+  audioCodec      String
+  captionMode     String
+  captionTrackId  String?
+  engine          String
+  engineJobId     String?
+  status          String
+  progress        Int
+  approvalState   String
+  requestedBy     String
+  explanation     String
+  approvedBy      String?
+  approvalNotes   String?
+  outputUri       String?
+  sidecarUri      String?
+  outputFileName  String?
+  fileSize        Int?
+  durationMs      Int?
+  checksum        String?
+  engineMetadata  Json?
+  errorCode       String?
+  errorMessage    String?
+  retryable       Boolean?
+  retryCount      Int      @default(0)
+  requestedAt     DateTime
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  failedAt        DateTime?
+  cancelledAt     DateTime?
+  series          Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode         Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  assembly        EpisodeAssembly @relation(fields: [assemblyId], references: [id], onDelete: Restrict)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([episodeId, exportVersion])
+  @@index([seriesId, episodeId, status])
+  @@index([assemblyId, createdAt])
 }
 
 model DramaEvaluation {

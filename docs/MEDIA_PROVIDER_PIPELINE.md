@@ -39,6 +39,10 @@ Readiness is a structured result with blockers and warnings. Visual prompt, dura
 
 All endpoints enforce authenticated production hierarchy and use sanitized error responses.
 
+## Episode assembly handoff
+
+Milestone 11 consumes reviewed `GeneratedAsset` records without changing provider behavior. Its deterministic selector uses preferred-approved media first and otherwise the latest approved version, independently for video and audio. Provider adapters cannot place unreviewed output directly into an assembly or render job. See [EPISODE_ASSEMBLY_EXPORT.md](EPISODE_ASSEMBLY_EXPORT.md).
+
 ## Limitations
 
-Production adapters submit only after owner approval and require explicit provider configuration. No music generation, SFX editor, audio upload library, FFmpeg composition, final mix, billing, final render, or deployment is included. Provider output may be a data URI or configured storage URI; this milestone does not add durable binary-object storage or URL signing.
+Production adapters submit only after owner approval and require explicit provider configuration. Milestone 11 adds basic local FFmpeg composition, but no music generation, SFX editor, audio upload library, advanced mix, billing, cloud rendering, distribution, or deployment. Provider output may be a data URI or configured storage URI; this milestone does not add durable binary-object storage or URL signing.
