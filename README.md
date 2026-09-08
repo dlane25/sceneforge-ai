@@ -4,7 +4,7 @@
 
  ## Current Milestone
 
- Milestone 9 adds real-provider contracts on top of the production-scoped, approval-governed pipeline. The fictional **Empire of Lies** demo still runs deterministically with explicit mock mode, while server-only Gemini structured output/image and Vertex Veo video adapters are executable behind validated configuration.
+ Milestone 10 adds production-grade character voice profiles, rights/consent governance, approval-gated dialogue-to-audio generation, ElevenLabs speech transport, deterministic mock audio, audio asset review/versioning, and SRT/WebVTT captions. The fictional **Empire of Lies** demo still runs deterministically with explicit mock mode, while server-only Gemini image, Vertex Veo video, and ElevenLabs voice adapters are executable behind validated configuration.
 
  - 60 planned episodes, 60-90 seconds each, vertical 9:16
  - 4 characters, 3 locations, and 5 outlined episodes
@@ -26,6 +26,10 @@
  Milestone 7 adds the approval-governed media lifecycle: prepare, estimate, approve, submit, poll, complete, and review generated assets. See [docs/MEDIA_PROVIDER_PIPELINE.md](docs/MEDIA_PROVIDER_PIPELINE.md).
 
  Milestone 8 adds generated asset review, immutable version history, approval/rejection records, and preferred asset selection. See [docs/MEDIA_REVIEW_WORKFLOW.md](docs/MEDIA_REVIEW_WORKFLOW.md).
+
+ Milestone 9 adds the validated provider registry, structured Gemini operations, and executable image/video transports. See [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md).
+
+ Milestone 10 adds voice, audio, and captions without bypassing generation or review governance. See [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
 
  ## Run Locally
 
@@ -51,12 +55,12 @@
 
  The pipeline is exposed at `/api/series/[id]/orchestrate`, `/api/pipelines/[id]`, `/api/pipelines/[id]/approve`, `/api/pipelines/[id]/reject`, and `/api/agent-executions`. Episode-level action routes are available under `/api/episodes/[id]`.
 
- Read the detailed design in [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [docs/SERIES_MEMORY.md](docs/SERIES_MEMORY.md), and [docs/PROVIDERS.md](docs/PROVIDERS.md), and [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md).
+ Read the detailed design in [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [docs/SERIES_MEMORY.md](docs/SERIES_MEMORY.md), [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md), and [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
 
  ## Provider setup
 
- Copy `.env.example` to `.env.local` for local work. Keep `MEDIA_PROVIDER=mock` (or explicitly set both `IMAGE_PROVIDER` and `VIDEO_PROVIDER` to `mock`) for deterministic operation. Production rejects mock mode and requires the selected provider's key/project/location/storage configuration. See [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md).
+ Copy `.env.example` to `.env.local` for local work. Keep image, video, and audio providers explicitly set to `mock` for deterministic operation. Production rejects mock mode and requires every selected provider's server-side configuration. See [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md) and [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
 
  ## Future Integrations
 
- Future milestones can add voice synthesis and episode assembly without changing the `Agent<TInput, TOutput>` contracts, repository boundaries, or approval state machine.
+ Future milestones can add episode mixing and assembly without changing the `Agent<TInput, TOutput>` contracts, repository boundaries, or approval state machine.

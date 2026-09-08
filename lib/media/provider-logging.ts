@@ -4,6 +4,7 @@ export interface ProviderLogEvent {
   operation: 'submit' | 'poll' | 'cancel' | 'complete';
   provider: string;
   model?: string;
+  voiceId?: string;
   generationJobId?: string;
   providerJobId?: string;
   status?: ProviderLifecycleStatus | 'polling_error';

@@ -39,3 +39,7 @@ Asset review must preserve history and require human decisions. Only approved as
 ## SceneForge AI Milestone 9
 
 Real AI and media provider integration must preserve provider-neutral architecture. Implement provider registry with capability discovery, configuration validation, and explicit mock mode. Gemini AI operations must use structured output with Zod validation and deterministic fake transport for tests. Real provider adapters may execute only through server-side transports, while tests inject fakes and make no network calls. Generation remains behind the human approval gate. Provider operations must be auditable and error-normalized. All Milestones 1-8 behavior is fully preserved.
+
+## SceneForge AI Milestone 10
+
+Voice, audio, and captions must extend the existing provider, generation, repository, and review architecture. Keep character voice profiles provider-neutral and require explicit approved rights and consent for cloned, licensed, or uploaded-reference voices. Snapshot dialogue, voice, model, parameters, and cost before owner approval; never invoke a speech provider before that approval. Audio assets must use existing version/review/preferred governance, scoped by asset type. Caption timing must be deterministic when provider transcript timing is unavailable. Keep all credentials and production transports server-only, inject fakes in tests, and never log raw dialogue, audio, credentials, headers, or provider responses.

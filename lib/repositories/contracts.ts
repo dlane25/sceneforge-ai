@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { Series } from '@/types';
 
 export type RepositoryRole = 'OWNER' | 'EDITOR' | 'VIEWER';
@@ -108,6 +108,10 @@ export interface ProductionDataRepository {
   updateGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset>;
   createMediaReview(review: MediaReview): Promise<MediaReview>;
   listMediaReviews(seriesId: string, episodeId: string, sceneId: string, shotId: string, assetId?: string): Promise<MediaReview[]>;
+  createCaptionTrack(track: CaptionTrack): Promise<CaptionTrack>;
+  getCaptionTrack(seriesId: string, episodeId: string, trackId: string): Promise<CaptionTrack | undefined>;
+  listCaptionTracks(seriesId: string, episodeId: string): Promise<CaptionTrack[]>;
+  updateCaptionTrack(track: CaptionTrack): Promise<CaptionTrack>;
 }
 
 export interface SeriesMemoryRepository {

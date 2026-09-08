@@ -82,6 +82,7 @@ model Series {
   storyFacts       StoryFact[]
   pipelines        PipelineRun[]
   generationJobs   GenerationJob[]
+  captionTracks    CaptionTrack[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
@@ -160,6 +161,7 @@ model Episode {
   evaluations DramaEvaluation[]
   storyFacts  StoryFact[]
   generationJobs GenerationJob[]
+  captionTracks CaptionTrack[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -181,6 +183,7 @@ model Scene {
   location    Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
   shots       Shot[]
   storyFacts  StoryFact[]
+  captionTracks CaptionTrack[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -379,6 +382,10 @@ model GenerationJob {
   episodeId       String?
   provider        String
   providerModel   String?
+  providerVoiceId String?
+  characterId     String?
+  language        String?
+  locale          String?
   model           String
   status          GenerationJobStatus
   promptVersion   String
@@ -434,11 +441,20 @@ model GeneratedAsset {
   mimeType        String
   width           Int
   height          Int
-  durationSeconds Int?
+  durationSeconds Float?
   fileSize        Int?
   provider        String
   providerJobId   String?
   providerModel   String?
+  providerVoiceId String?
+  characterId     String?
+  language        String?
+  locale          String?
+  sourceTextSnapshot String?
+  codec           String?
+  sampleRate      Int?
+  bitrate         Int?
+  channels        Int?
   fingerprint     String
   checksum        String?
   generationParameters Json?
@@ -478,6 +494,53 @@ model MediaReview {
   reviewedAt            DateTime?
 
   @@index([seriesId, episodeId, sceneId, shotId, assetId])
+}
+
+model CaptionTrack {
+  id            String   @id
+  seriesId      String
+  episodeId     String
+  sceneId       String?
+  language      String
+  format        String
+  source        String
+  provider      String?
+  content       String
+  version       Int      @default(1)
+  reviewStatus  String   @default("pending")
+  preferred     Boolean  @default(false)
+  generatedAt   DateTime
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  reviewNotes   String?
+  supersededAt  DateTime?
+  series        Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode       Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  scene         Scene?   @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  segments      CaptionSegment[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([seriesId, episodeId, language, format])
+  @@index([episodeId, preferred])
+}
+
+model CaptionSegment {
+  id          String       @id
+  trackId     String
+  sequence    Int
+  sceneId     String
+  shotId      String?
+  startMs     Int
+  endMs       Int
+  text        String
+  speaker     String?
+  characterId String?
+  confidence  Float?
+  track       CaptionTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, sequence])
+  @@index([sceneId, shotId])
 }
 
 model DramaEvaluation {

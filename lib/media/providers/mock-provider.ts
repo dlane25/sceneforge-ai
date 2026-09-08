@@ -38,6 +38,11 @@ export class MockMediaProvider implements MediaProvider {
   readonly capabilities: ProviderCapabilities = {
     imageGeneration: true,
     videoGeneration: true,
+    textToSpeech: true,
+    speechGeneration: true,
+    voiceCloning: false,
+    soundEffectsGeneration: false,
+    captionGeneration: false,
     videoExtension: true,
     imageToVideo: true,
     synchronous: false,
@@ -62,6 +67,10 @@ export class MockMediaProvider implements MediaProvider {
     return this.createJob('video', { ...request, type: 'video' });
   }
 
+  async generateSpeech(request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
+    return this.createJob('audio', { ...request, type: 'audio' });
+  }
+
   async extendVideo(_jobId: string, request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
     return this.createJob('video', { ...request, type: 'video' });
   }
@@ -81,11 +90,13 @@ export class MockMediaProvider implements MediaProvider {
     } else if (job.status.status === 'processing') {
       job.polls += 1;
       const portrait = (job.request.aspectRatio || '9:16') === '9:16';
-      const width = job.request.width || (portrait ? 720 : 1280);
-      const height = job.request.height || (portrait ? 1280 : 720);
-      const extension = job.mediaType === 'image' ? 'png' : 'mp4';
-      const mimeType = job.mediaType === 'image' ? 'image/png' : 'video/mp4';
+      const audio = job.mediaType === 'audio';
+      const width = audio ? 0 : job.request.width || (portrait ? 720 : 1280);
+      const height = audio ? 0 : job.request.height || (portrait ? 1280 : 720);
+      const extension = job.mediaType === 'image' ? 'png' : audio ? 'mp3' : 'mp4';
+      const mimeType = job.mediaType === 'image' ? 'image/png' : audio ? 'audio/mpeg' : 'video/mp4';
       const uri = `mock://output/${jobId}.${extension}`;
+      const durationSeconds = audio ? Math.max(0.5, Number(((job.request.prompt?.trim().split(/\s+/).length || 1) / 2.5).toFixed(2))) : job.mediaType === 'video' ? job.request.duration : undefined;
       job.status = {
         jobId,
         status: 'succeeded',
@@ -98,9 +109,13 @@ export class MockMediaProvider implements MediaProvider {
           mimeType,
           width,
           height,
-          durationSeconds: job.mediaType === 'video' ? job.request.duration : undefined,
-          fileSize: job.mediaType === 'image' ? 1_048_576 : 5_242_880,
+          durationSeconds,
+          fileSize: job.mediaType === 'image' ? 1_048_576 : audio ? Math.ceil((durationSeconds || 1) * 16_000) : 5_242_880,
           checksum: hash(jobId),
+          codec: audio ? 'mp3' : undefined,
+          sampleRate: audio ? 44_100 : undefined,
+          bitrate: audio ? 128_000 : undefined,
+          channels: audio ? 1 : undefined,
           metadata: { provider: 'mock', polls: job.polls, serialization: stableSerialize(job.request) },
         },
         lastUpdated: new Date(),
@@ -118,7 +133,7 @@ export class MockMediaProvider implements MediaProvider {
   }
 
   async estimateCost(request: ProviderGenerationRequest): Promise<number> {
-    const duration = request.type === 'image' ? 1 : request.duration || 5;
+    const duration = request.type === 'image' ? 1 : request.type === 'audio' ? Math.max(1, (request.prompt?.length || 0) / 100) : request.duration || 5;
     return Number((duration * (request.style ? 0.012 : 0.01)).toFixed(4));
   }
 

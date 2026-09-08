@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import { EMPIRE_OF_LIES_CHARACTERS, EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, PipelineStageStatus, SeriesInput } from './contracts';
 
@@ -24,6 +24,7 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   private generationJobs = new Map<string, GenerationJob>();
   private assets = new Map<string, GeneratedAsset>();
   private reviews = new Map<string, MediaReview>();
+  private captionTracks = new Map<string, CaptionTrack>();
 
   constructor() {
     this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() }));
@@ -48,8 +49,8 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   async archiveSeries(seriesId: string): Promise<Series> { return this.updateSeries(seriesId, { status: 'archived' }); }
   async listCharacters(seriesId: string): Promise<Character[]> { return [...this.characters.values()].filter((value) => value.seriesId === seriesId).map(clone); }
   async getCharacter(seriesId: string, characterId: string): Promise<Character | undefined> { const value = this.characters.get(characterId); return value?.seriesId === seriesId ? clone(value) : undefined; }
-  async createCharacter(seriesId: string, input: CharacterInput): Promise<Character> { const id = `character_${this.characters.size + 1}`; const value: Character = { id, seriesId, ...input, relationships: [], voiceProfile: input.voiceProfile, continuityNotes: input.continuityNotes || [], createdAt: new Date(), updatedAt: new Date() }; this.characters.set(id, clone(value)); return clone(value); }
-  async updateCharacter(seriesId: string, characterId: string, input: Partial<CharacterInput>): Promise<Character> { const current = await this.getCharacter(seriesId, characterId); if (!current) throw new Error(`Character ${characterId} was not found`); const value = { ...current, ...input, updatedAt: new Date() }; this.characters.set(characterId, clone(value)); return clone(value); }
+  async createCharacter(seriesId: string, input: CharacterInput): Promise<Character> { const id = `character_${this.characters.size + 1}`; const now = new Date(); const value: Character = { id, seriesId, ...input, relationships: [], voiceProfile: { ...input.voiceProfile, characterId: id, displayName: input.voiceProfile.displayName || input.name, active: input.voiceProfile.active ?? true, createdAt: input.voiceProfile.createdAt || now, updatedAt: now }, continuityNotes: input.continuityNotes || [], createdAt: now, updatedAt: now }; this.characters.set(id, clone(value)); return clone(value); }
+  async updateCharacter(seriesId: string, characterId: string, input: Partial<CharacterInput>): Promise<Character> { const current = await this.getCharacter(seriesId, characterId); if (!current) throw new Error(`Character ${characterId} was not found`); const now = new Date(); const voiceProfile = input.voiceProfile ? { ...current.voiceProfile, ...input.voiceProfile, characterId, displayName: input.voiceProfile.displayName || input.name || current.name, createdAt: current.voiceProfile.createdAt || now, updatedAt: now } : current.voiceProfile; const value = { ...current, ...input, voiceProfile, updatedAt: now }; this.characters.set(characterId, clone(value)); return clone(value); }
   async deleteCharacter(seriesId: string, characterId: string): Promise<void> { if (!(await this.getCharacter(seriesId, characterId))) throw new Error(`Character ${characterId} was not found`); this.characters.delete(characterId); }
   async listLocations(seriesId: string): Promise<Location[]> { return [...this.locations.values()].filter((value) => value.seriesId === seriesId).map(clone); }
   async getLocation(seriesId: string, locationId: string): Promise<Location | undefined> { const value = this.locations.get(locationId); return value?.seriesId === seriesId ? clone(value) : undefined; }
@@ -89,6 +90,10 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   async updateGeneratedAsset(asset: GeneratedAsset): Promise<GeneratedAsset> { if (!this.assets.has(asset.id)) throw new Error(`Asset ${asset.id} was not found`); this.assets.set(asset.id, clone(asset)); return clone(asset); }
   async createMediaReview(review: MediaReview): Promise<MediaReview> { this.reviews.set(review.id, clone(review)); return clone(review); }
   async listMediaReviews(seriesId: string, episodeId: string, sceneId: string, shotId: string, assetId?: string): Promise<MediaReview[]> { return [...this.reviews.values()].filter((review) => review.seriesId === seriesId && review.episodeId === episodeId && review.sceneId === sceneId && review.shotId === shotId && (!assetId || review.assetId === assetId)).map(clone); }
+  async createCaptionTrack(track: CaptionTrack): Promise<CaptionTrack> { this.captionTracks.set(track.id, clone(track)); return clone(track); }
+  async getCaptionTrack(seriesId: string, episodeId: string, trackId: string): Promise<CaptionTrack | undefined> { const track = this.captionTracks.get(trackId); return track?.seriesId === seriesId && track.episodeId === episodeId ? clone(track) : undefined; }
+  async listCaptionTracks(seriesId: string, episodeId: string): Promise<CaptionTrack[]> { return [...this.captionTracks.values()].filter((track) => track.seriesId === seriesId && track.episodeId === episodeId).sort((a, b) => a.version - b.version).map(clone); }
+  async updateCaptionTrack(track: CaptionTrack): Promise<CaptionTrack> { if (!this.captionTracks.has(track.id)) throw new Error(`Caption track ${track.id} was not found`); this.captionTracks.set(track.id, clone(track)); return clone(track); }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
   async get(id: string): Promise<PipelineRun | undefined> { const value = this.pipelines.get(id); return value ? clone(value) : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
@@ -109,7 +114,7 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
       return true;
     });
   }
-  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.generationJobs.clear(); this.assets.clear(); this.reviews.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
+  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.generationJobs.clear(); this.assets.clear(); this.reviews.clear(); this.captionTracks.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
 }
 
 export const memoryRepository = new InMemoryPersistenceRepository();

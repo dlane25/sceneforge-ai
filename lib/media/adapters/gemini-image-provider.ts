@@ -103,6 +103,11 @@ export class GeminiImageProvider implements MediaProvider {
     throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image provider does not support video generation');
   }
 
+  async generateSpeech(...args: [ProviderGenerationRequest]): Promise<ProviderJobMetadata> {
+    void args;
+    throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image provider does not support speech generation');
+  }
+
   async extendVideo(...args: [string, ProviderGenerationRequest]): Promise<ProviderJobMetadata> {
     void args;
     throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image provider does not support video extension');

@@ -1,5 +1,5 @@
 export type GenerationJobStatus = 'draft' | 'awaiting_approval' | 'approved' | 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'rejected';
-export type GenerationType = 'video' | 'image' | 'image-to-video' | 'extension';
+export type GenerationType = 'video' | 'image' | 'image-to-video' | 'extension' | 'audio';
 export type AssetType = 'storyboard-image' | 'generated-image' | 'video-clip' | 'audio' | 'captions' | 'final-render';
 
 export interface GenerationJob {
@@ -11,6 +11,10 @@ export interface GenerationJob {
   provider: string;
   providerJobId?: string;
   providerModel?: string;
+  providerVoiceId?: string;
+  characterId?: string;
+  language?: string;
+  locale?: string;
   generationType: GenerationType;
   status: GenerationJobStatus;
   promptVersion: string;
@@ -59,6 +63,15 @@ export interface GeneratedAsset {
   provider: string;
   providerJobId?: string;
   providerModel?: string;
+  providerVoiceId?: string;
+  characterId?: string;
+  language?: string;
+  locale?: string;
+  sourceTextSnapshot?: string;
+  codec?: string;
+  sampleRate?: number;
+  bitrate?: number;
+  channels?: number;
   fingerprint: string;
   checksum?: string;
   version: number;
@@ -97,3 +110,43 @@ export interface MediaReview {
 }
 
 export interface MediaReviewInput { notes?: string; rejectionReason?: string; }
+
+export type CaptionFormat = 'srt' | 'vtt';
+export type CaptionReviewStatus = 'pending' | 'approved' | 'rejected' | 'superseded';
+
+export interface CaptionSegment {
+  id: string;
+  trackId: string;
+  sequence: number;
+  sceneId: string;
+  shotId?: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+  speaker?: string;
+  characterId?: string;
+  confidence?: number;
+}
+
+export interface CaptionTrack {
+  id: string;
+  seriesId: string;
+  episodeId: string;
+  sceneId?: string;
+  language: string;
+  format: CaptionFormat;
+  source: 'dialogue-timing' | 'provider-transcript';
+  provider?: string;
+  content: string;
+  version: number;
+  reviewStatus: CaptionReviewStatus;
+  preferred: boolean;
+  generatedAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  reviewNotes?: string;
+  supersededAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  segments: CaptionSegment[];
+}

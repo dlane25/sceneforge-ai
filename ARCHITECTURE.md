@@ -57,7 +57,7 @@ lib/
     providers/                 # Video provider abstractions
     mock-provider.ts           # Mock video provider
   
-  voice/                       # Voice generation (future)
+  media/                       # Provider-neutral image, video, voice, and review services
   db/
     client.ts                    # Server-only Prisma client
     generation-job-repository.ts # Job management
@@ -181,6 +181,14 @@ Track all video generation requests with:
 - Output asset IDs
 - Error messages and timestamps
 
+### 7. Voice, Audio, and Captions
+
+Character voice profiles remain part of production data and Series Memory identity. `AudioGenerationService` resolves the configured speech provider through `ProviderRegistry`, snapshots dialogue, voice controls, model, and cost into the existing `GenerationJob`, and requires owner approval before provider submission. Completed speech creates a generic `GeneratedAsset` with audio metadata and enters the existing human review/version workflow.
+
+`ElevenLabsVoiceProvider` implements synchronous speech generation through an injectable, server-only transport. `MockMediaProvider` implements the same overlapping contract with deterministic polling and audio metadata. Provider errors use the Milestone 9 taxonomy, and provider audit events exclude dialogue, credentials, headers, binary audio, and raw responses.
+
+`CaptionService` derives deterministic SRT or WebVTT segments from persisted scene/shot order and duration. Caption tracks and segments persist through repository contracts with review, version, and preferred-state metadata. Captions do not use AI to invent timing.
+
 ## Determinism
 
 The application prioritizes deterministic behavior:
@@ -257,6 +265,12 @@ Shots and storyboard placeholders extend the persisted `Series -> Episode -> Sce
 ## Milestone 9 Real AI and media providers
 
 `ProviderRegistry` resolves stable `mock`, `gemini-image`, and `vertex-video` IDs with capability discovery and fail-fast configuration validation. `GeminiService` uses server-only structured output with Zod validation; its production transport is injectable and tests use deterministic fakes. Gemini image and Vertex Veo adapters normalize provider lifecycle, output, cost, and errors behind `MediaProvider`. `GenerationService` snapshots provider/model/request data before approval and only submits after owner approval; refresh is idempotent and repository-backed. Credentials and ADC tokens remain server-only, and safe provider audit events never include prompts, tokens, or raw responses.
+
+## Milestone 10 Voice, Audio, and Captions
+
+The provider contract now declares speech, voice-cloning, optional sound-effects, and caption capabilities explicitly. Stable `elevenlabs-voice` support is executable only on the server, while tests use fake HTTP or deterministic mock transports. Voice rights metadata blocks cloned, licensed, or uploaded-reference sources until ownership and consent are approved. Audio and captions use the same production authorization, repositories, review history, preferred-version semantics, sanitized APIs, and deterministic local behavior established in Milestones 1–9.
+
+See [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
 
 ## Milestone 2 AI Orchestration
 

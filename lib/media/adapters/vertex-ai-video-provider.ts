@@ -108,6 +108,11 @@ export class VertexAIVideoProvider implements MediaProvider {
     throw providerError(ProviderErrorCode.UnsupportedCapability, 'Vertex video provider does not support image generation');
   }
 
+  async generateSpeech(...args: [ProviderGenerationRequest]): Promise<ProviderJobMetadata> {
+    void args;
+    throw providerError(ProviderErrorCode.UnsupportedCapability, 'Vertex video provider does not support speech generation');
+  }
+
   async extendVideo(...args: [string, ProviderGenerationRequest]): Promise<ProviderJobMetadata> {
     void args;
     throw providerError(ProviderErrorCode.UnsupportedCapability, 'Video extension is not enabled by this adapter');

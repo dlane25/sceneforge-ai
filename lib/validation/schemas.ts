@@ -38,7 +38,24 @@ export const memberInputSchema = z.object({
 
 export const memberRoleSchema = z.object({ role: z.enum(['OWNER', 'EDITOR', 'VIEWER']) });
 
-const voiceProfileSchema = z.object({ tone: z.string().trim().min(1).max(120), accent: z.string().trim().max(120).optional(), pace: z.enum(['slow', 'normal', 'fast']), pitch: z.string().trim().max(120).optional() });
+const voiceRightsSchema = z.object({
+  rightsConfirmed: z.boolean(),
+  consentConfirmed: z.boolean(),
+  sourceType: z.enum(['synthetic', 'provider-catalog', 'licensed', 'uploaded-reference', 'cloned']),
+  ownerRightsNote: z.string().trim().max(1000).optional(),
+  confirmedAt: z.coerce.date().optional(),
+  reviewedBy: z.string().trim().max(200).optional(),
+  approvalState: z.enum(['not-required', 'pending', 'approved', 'rejected']),
+});
+const voiceProfileSchema = z.object({
+  tone: z.string().trim().min(1).max(120), accent: z.string().trim().max(120).optional(), pace: z.enum(['slow', 'normal', 'fast']), pitch: z.string().trim().max(120).optional(),
+  characterId: z.string().trim().max(200).optional(), displayName: z.string().trim().max(200).optional(), provider: z.enum(['mock', 'elevenlabs-voice']).optional(), providerVoiceId: z.string().trim().max(300).optional(),
+  language: z.string().trim().min(2).max(50).optional(), locale: z.string().trim().max(80).optional(), speakingStyle: z.string().trim().max(200).optional(),
+  styleDescriptors: z.array(z.string().trim().max(120)).max(20).optional(), ageDescriptor: z.string().trim().max(120).optional(), voiceDescriptors: z.array(z.string().trim().max(120)).max(20).optional(),
+  stability: z.number().min(0).max(1).optional(), similarityBoost: z.number().min(0).max(1).optional(), styleExaggeration: z.number().min(0).max(1).optional(), speakerBoost: z.boolean().optional(),
+  reference: z.object({ referenceId: z.string().trim().max(300).optional(), mimeType: z.string().trim().max(120).optional(), checksum: z.string().trim().max(300).optional(), durationSeconds: z.number().positive().max(3600).optional(), description: z.string().trim().max(1000).optional() }).optional(),
+  rights: voiceRightsSchema.optional(), active: z.boolean().optional(), createdAt: z.coerce.date().optional(), updatedAt: z.coerce.date().optional(),
+});
 export const characterInputSchema = z.object({ name: z.string().trim().min(1).max(120), role: z.enum(['protagonist', 'antagonist', 'supporting', 'minor']), description: z.string().trim().max(1000).optional(), age: z.number().int().min(0).max(150), ageRange: z.string().trim().max(80).optional(), appearance: z.string().trim().min(1).max(1000), personality: z.string().trim().min(1).max(1000), wardrobe: z.string().trim().min(1).max(1000), voiceProfile: voiceProfileSchema, continuityNotes: z.array(z.string().trim().max(500)).max(30).optional(), status: z.enum(['active', 'inactive', 'deceased', 'archived']).optional() });
 export const characterPatchSchema = characterInputSchema.partial();
 export const locationInputSchema = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().min(1).max(1000), type: z.string().trim().max(80).optional(), visualDescription: z.string().trim().max(1000).optional(), roomDetails: z.string().trim().max(1000).optional(), lighting: z.string().trim().max(500).optional(), visualStyle: z.string().trim().max(500).optional(), continuityNotes: z.array(z.string().trim().max(500)).max(30).optional() });

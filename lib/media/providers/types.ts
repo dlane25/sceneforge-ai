@@ -1,12 +1,17 @@
-export const PROVIDER_IDS = ['mock', 'gemini-image', 'vertex-video'] as const;
+export const PROVIDER_IDS = ['mock', 'gemini-image', 'vertex-video', 'elevenlabs-voice'] as const;
 
 export type ProviderId = (typeof PROVIDER_IDS)[number];
-export type ProviderMediaType = 'image' | 'video';
+export type ProviderMediaType = 'image' | 'video' | 'audio';
 export type ProviderLifecycleStatus = 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface ProviderCapabilities {
   imageGeneration?: boolean;
   videoGeneration?: boolean;
+  textToSpeech?: boolean;
+  speechGeneration?: boolean;
+  voiceCloning?: boolean;
+  soundEffectsGeneration?: boolean;
+  captionGeneration?: boolean;
   imageMasking?: boolean;
   imageInpainting?: boolean;
   imageOutpainting?: boolean;
@@ -31,6 +36,8 @@ export interface ProviderConfig {
   outputStorageUri?: string;
   imageModel?: string;
   videoModel?: string;
+  audioModel?: string;
+  outputFormat?: string;
   [key: string]: string | undefined;
 }
 
@@ -82,6 +89,14 @@ export interface ProviderGenerationRequest {
   style?: string;
   model?: string;
   continuityConstraints?: string[];
+  voiceId?: string;
+  language?: string;
+  locale?: string;
+  stability?: number;
+  similarityBoost?: number;
+  styleExaggeration?: number;
+  speakerBoost?: boolean;
+  outputFormat?: string;
 }
 
 export interface ProviderOutput {
@@ -93,6 +108,11 @@ export interface ProviderOutput {
   durationSeconds?: number;
   fileSize?: number;
   checksum?: string;
+  codec?: string;
+  sampleRate?: number;
+  bitrate?: number;
+  channels?: number;
+  transcriptSegments?: Array<{ startMs: number; endMs: number; text: string; speaker?: string; confidence?: number }>;
   metadata: Record<string, unknown>;
 }
 
@@ -127,6 +147,7 @@ export interface MediaProvider {
   readonly capabilities: ProviderCapabilities;
   generateImage(request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
   generateVideo(request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
+  generateSpeech(request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
   extendVideo(jobId: string, request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
   imageToVideo(imageUri: string, request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
   getStatus(jobId: string): Promise<ProviderJobStatus>;
