@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import path from 'node:path';
 import type { AuthenticatedUser } from '@/lib/auth';
 import { EpisodeAssemblyService } from '@/lib/assembly';
 import { EpisodeExportService } from '@/lib/export/service';
@@ -80,7 +81,7 @@ describe('operations, configuration, health, and request hardening', () => {
   });
 
   it('validates the production environment without returning secret values', async () => {
-    const complete = { NODE_ENV: 'production', DATABASE_URL: 'postgresql://secret', AUTH_MODE: 'authjs', AUTH_SECRET: 'auth-secret', AUTH_TRUST_HOST: 'true', AUTH_GOOGLE_ID: 'client', AUTH_GOOGLE_SECRET: 'oauth-secret', APP_BASE_URL: 'https://sceneforge.example', AUTH_URL: 'https://sceneforge.example', IMAGE_PROVIDER: 'gemini-image', VIDEO_PROVIDER: 'vertex-video', AUDIO_PROVIDER: 'elevenlabs-voice', GEMINI_API_KEY: 'gemini-secret', GEMINI_IMAGE_MODEL: 'image-model', GOOGLE_CLOUD_PROJECT: 'project', GOOGLE_CLOUD_LOCATION: 'us-central1', VERTEX_VIDEO_MODEL: 'video-model', VERTEX_OUTPUT_STORAGE_URI: 'gs://bucket/path', ELEVENLABS_API_KEY: 'voice-secret', ELEVENLABS_MODEL_ID: 'voice-model', EXPORT_ENGINE: 'ffmpeg-local', FFMPEG_PATH: 'ffmpeg', EXPORT_MEDIA_ROOT: 'C:\\media', EXPORT_OUTPUT_ROOT: 'C:\\output' };
+    const complete = { NODE_ENV: 'production', DATABASE_URL: 'postgresql://secret', AUTH_MODE: 'authjs', AUTH_SECRET: 'auth-secret', AUTH_TRUST_HOST: 'true', AUTH_GOOGLE_ID: 'client', AUTH_GOOGLE_SECRET: 'oauth-secret', APP_BASE_URL: 'https://sceneforge.example', AUTH_URL: 'https://sceneforge.example', IMAGE_PROVIDER: 'gemini-image', VIDEO_PROVIDER: 'vertex-video', AUDIO_PROVIDER: 'elevenlabs-voice', GEMINI_API_KEY: 'gemini-secret', GEMINI_IMAGE_MODEL: 'image-model', GOOGLE_CLOUD_PROJECT: 'project', GOOGLE_CLOUD_LOCATION: 'us-central1', VERTEX_VIDEO_MODEL: 'video-model', VERTEX_OUTPUT_STORAGE_URI: 'gs://bucket/path', ELEVENLABS_API_KEY: 'voice-secret', ELEVENLABS_MODEL_ID: 'voice-model', EXPORT_ENGINE: 'ffmpeg-local', FFMPEG_PATH: 'ffmpeg', EXPORT_MEDIA_ROOT: path.resolve('test-fixtures', 'media'), EXPORT_OUTPUT_ROOT: path.resolve('test-fixtures', 'output') };
     const report = assessProductionConfiguration(complete, { now: new Date('2026-01-01T00:00:00Z'), pathExists: () => true }); expect(report.ready).toBe(true); expect(JSON.stringify(report)).not.toMatch(/gemini-secret|oauth-secret|postgresql:\/\/secret|voice-secret/);
     const missing = assessProductionConfiguration({ NODE_ENV: 'production' }); expect(missing.ready).toBe(false); expect(missing.checks.some((check) => check.affectedResource?.id === 'DATABASE_URL')).toBe(true);
     const health = await new HealthService(async () => true).ready(complete, report); expect(health.status).toBe('ok');
