@@ -1,31 +1,40 @@
-/**
- * Mock Media Provider
- * Deterministic mock implementation for testing and development
- */
-
-import type {
-  MediaProvider,
-  ProviderCapabilities,
-  ProviderGenerationRequest,
-  ProviderJobMetadata,
-  ProviderJobStatus,
-  ProviderOutput,
-  NormalizedProviderError,
+import { providerError } from './errors';
+import {
+  ProviderErrorCode,
+  type MediaProvider,
+  type ProviderCapabilities,
+  type ProviderGenerationRequest,
+  type ProviderJobMetadata,
+  type ProviderJobStatus,
+  type ProviderMediaType,
 } from './types';
-import { ProviderErrorCode } from './types';
 
-function simpleHash(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+export function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`).join(',')}}`;
+}
+
+function hash(value: string): string {
+  let result = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    result ^= value.charCodeAt(index);
+    result = Math.imul(result, 16777619);
   }
-  return Math.abs(hash);
+  return (result >>> 0).toString(36);
+}
+
+interface MockJob {
+  metadata: ProviderJobMetadata;
+  request: ProviderGenerationRequest;
+  mediaType: ProviderMediaType;
+  polls: number;
+  status: ProviderJobStatus;
 }
 
 export class MockMediaProvider implements MediaProvider {
-  readonly id = 'mock';
+  readonly id = 'mock' as const;
   readonly capabilities: ProviderCapabilities = {
     imageGeneration: true,
     videoGeneration: true,
@@ -35,168 +44,101 @@ export class MockMediaProvider implements MediaProvider {
     asyncWithPolling: true,
     cancellation: true,
     costEstimation: true,
+    requestValidation: true,
     supportedAspectRatios: ['9:16', '16:9', '1:1'],
     supportedDurations: { min: 1, max: 300 },
-    supportedResolutions: { min: 720, max: 4096 },
+    supportedResolutions: { min: 256, max: 4096 },
     supportedModels: ['mock-v1'],
   };
 
-  private jobs: Map<string, { metadata: ProviderJobMetadata; status: ProviderJobStatus }> = new Map();
+  private readonly jobs = new Map<string, MockJob>();
+  private sequence = 0;
 
   async generateImage(request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
-    return this.createJob('image', request);
+    return this.createJob('image', { ...request, type: 'image' });
   }
 
   async generateVideo(request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
-    return this.createJob('video', request);
+    return this.createJob('video', { ...request, type: 'video' });
   }
 
   async extendVideo(_jobId: string, request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
-    return this.createJob('video-extend', request);
+    return this.createJob('video', { ...request, type: 'video' });
   }
 
   async imageToVideo(_imageUri: string, request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
-    return this.createJob('i2v', request);
+    return this.createJob('video', { ...request, type: 'video' });
   }
 
   async getStatus(jobId: string): Promise<ProviderJobStatus> {
     const job = this.jobs.get(jobId);
     if (!job) {
-      return {
+      return { jobId, status: 'failed', error: { code: ProviderErrorCode.UnknownError, message: 'Mock job was not found', retryable: false, timestamp: new Date() }, lastUpdated: new Date() };
+    }
+    if (job.status.status === 'queued') {
+      job.polls += 1;
+      job.status = { jobId, status: 'processing', progress: 50, lastUpdated: new Date() };
+    } else if (job.status.status === 'processing') {
+      job.polls += 1;
+      const portrait = (job.request.aspectRatio || '9:16') === '9:16';
+      const width = job.request.width || (portrait ? 720 : 1280);
+      const height = job.request.height || (portrait ? 1280 : 720);
+      const extension = job.mediaType === 'image' ? 'png' : 'mp4';
+      const mimeType = job.mediaType === 'image' ? 'image/png' : 'video/mp4';
+      const uri = `mock://output/${jobId}.${extension}`;
+      job.status = {
         jobId,
-        status: 'failed',
-        error: {
-          code: ProviderErrorCode.UnknownError,
-          message: 'Job not found',
-          retryable: false,
-          timestamp: new Date(),
+        status: 'succeeded',
+        progress: 100,
+        outputUrl: uri,
+        actualCost: job.metadata.estimatedCost,
+        output: {
+          uri,
+          storageUri: uri,
+          mimeType,
+          width,
+          height,
+          durationSeconds: job.mediaType === 'video' ? job.request.duration : undefined,
+          fileSize: job.mediaType === 'image' ? 1_048_576 : 5_242_880,
+          checksum: hash(jobId),
+          metadata: { provider: 'mock', polls: job.polls, serialization: stableSerialize(job.request) },
         },
         lastUpdated: new Date(),
       };
     }
-
-    const status = job.status;
-
-    // Simulate deterministic progress
-    if (status.status === 'queued' || status.status === 'processing') {
-      const hash = simpleHash(jobId);
-      const progressIncrement = (hash % 30) + 10;
-      const newProgress = (status.progress || 0) + progressIncrement;
-
-      if (newProgress >= 100) {
-        status.status = 'succeeded';
-        status.progress = 100;
-        status.outputUrl = this.generateMockOutputUrl(jobId);
-        job.metadata.actualCost = job.metadata.estimatedCost;
-      } else {
-        status.status = 'processing';
-        status.progress = newProgress;
-      }
-      status.lastUpdated = new Date();
-    }
-
-    return status;
+    return structuredClone(job.status);
   }
 
   async cancelJob(jobId: string): Promise<ProviderJobStatus> {
     const job = this.jobs.get(jobId);
-    if (!job) {
-      return {
-        jobId,
-        status: 'failed',
-        error: {
-          code: ProviderErrorCode.UnknownError,
-          message: 'Job not found',
-          retryable: false,
-          timestamp: new Date(),
-        },
-        lastUpdated: new Date(),
-      };
-    }
-
-    job.status.status = 'cancelled';
-    job.status.lastUpdated = new Date();
-    return job.status;
+    if (!job) throw providerError(ProviderErrorCode.InvalidRequest, 'Mock job was not found');
+    if (job.status.status === 'succeeded' || job.status.status === 'failed') return structuredClone(job.status);
+    job.status = { jobId, status: 'cancelled', lastUpdated: new Date() };
+    return structuredClone(job.status);
   }
 
   async estimateCost(request: ProviderGenerationRequest): Promise<number> {
-    const baseCost = 100;
-    const duration = request.duration || 5;
-    const durationMultiplier = duration / 60;
-    const styleMultiplier = request.style ? 1.2 : 1.0;
-    return Math.round(baseCost * durationMultiplier * styleMultiplier);
+    const duration = request.type === 'image' ? 1 : request.duration || 5;
+    return Number((duration * (request.style ? 0.012 : 0.01)).toFixed(4));
   }
 
-  private async createJob(
-    type: string,
-    request: ProviderGenerationRequest
-  ): Promise<ProviderJobMetadata> {
-    const jobId = this.generateJobId(type, request.prompt || '');
-    const estimatedCost = await this.estimateCost(request);
-
+  private async createJob(mediaType: ProviderMediaType, request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
+    if (!request.prompt?.trim()) throw providerError(ProviderErrorCode.InvalidRequest, 'Generation prompt is required');
+    this.sequence += 1;
+    const now = new Date();
+    const jobId = `mock-${mediaType}-${hash(stableSerialize(request))}-${this.sequence}`;
     const metadata: ProviderJobMetadata = {
       jobId,
       provider: this.id,
       model: request.model || 'mock-v1',
       status: 'queued',
-      estimatedCost,
-      createdAt: new Date(),
+      estimatedCost: await this.estimateCost(request),
+      createdAt: now,
+      submittedAt: now,
+      lastUpdated: now,
+      lifecycleMetadata: { serialization: stableSerialize(request) },
     };
-
-    const status: ProviderJobStatus = {
-      jobId,
-      status: 'queued',
-      progress: 0,
-      lastUpdated: new Date(),
-    };
-
-    this.jobs.set(jobId, { metadata, status });
-
-    // Simulate potential failure
-    const hash = simpleHash(request.prompt || '');
-    const successRate = 0.95;
-    if ((hash % 100) / 100 >= successRate) {
-      setTimeout(() => {
-        const job = this.jobs.get(jobId);
-        if (job && job.status.status !== 'succeeded') {
-          job.status.status = 'failed';
-          job.status.error = {
-            code: ProviderErrorCode.UnknownError,
-            message: 'Mock provider simulated failure',
-            retryable: true,
-            timestamp: new Date(),
-          };
-          job.status.lastUpdated = new Date();
-        }
-      }, 1000);
-    }
-
-    return metadata;
-  }
-
-  private generateJobId(type: string, seed: string): string {
-    const hash = simpleHash(seed);
-    const timestamp = Date.now().toString(36);
-    return `mock-${type}-${timestamp}-${hash.toString(36)}`;
-  }
-
-  private hashRequest(request: ProviderGenerationRequest): string {
-    return simpleHash(JSON.stringify(request)).toString(16);
-  }
-
-  private generateMockOutputUrl(jobId: string): string {
-    return `mock://output/${jobId}.mp4`;
-  }
-
-  private generateMockOutput(jobId: string): ProviderOutput {
-    return {
-      uri: `mock://output/${jobId}`,
-      mimeType: 'video/mp4',
-      width: 720,
-      height: 1280,
-      durationSeconds: 10,
-      fileSize: 5242880, // 5MB
-      metadata: { provider: 'mock', generatedAt: new Date().toISOString() },
-    };
+    this.jobs.set(jobId, { metadata, request, mediaType, polls: 0, status: { jobId, status: 'queued', progress: 0, lastUpdated: now } });
+    return structuredClone(metadata);
   }
 }

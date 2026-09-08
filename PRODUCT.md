@@ -253,6 +253,13 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Continuity-aware approval enforcement
 ✓ Deterministic metadata comparison and review audit history
 
+### Milestone 9 (Current)
+✓ Stable provider registry with capability discovery and explicit mock mode
+✓ Server-only Gemini structured output with Zod validation and deterministic fake transport
+✓ Executable Gemini image and Vertex Veo adapters behind provider-neutral transports
+✓ Approval-gated submission, idempotent polling, normalized errors, safe audit metadata, and provider-aware UI
+✓ No network calls in tests; no migrations, deployments, or committed credentials
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters

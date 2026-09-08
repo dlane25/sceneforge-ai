@@ -17,6 +17,7 @@ export interface GenerationJob {
   inputHash: string;
   promptSnapshot: string;
   negativePromptSnapshot?: string;
+  generationParameters?: Record<string, unknown>;
   durationSeconds: number;
   aspectRatio: '9:16' | '16:9' | '1:1';
   estimatedCost: number;
@@ -28,12 +29,15 @@ export interface GenerationJob {
   retryable?: boolean;
   createdAt: Date;
   startedAt?: Date;
+  submittedAt?: Date;
   completedAt?: Date;
   cancelledAt?: Date;
   updatedAt: Date;
   lastPolledAt?: Date;
   lastProviderStatus?: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'polling_error';
   lastProviderError?: string;
+  providerMetadata?: Record<string, unknown>;
+  completionMetadata?: Record<string, unknown>;
   failedAt?: Date;
 }
 

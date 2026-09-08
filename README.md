@@ -4,7 +4,7 @@
 
  ## Current Milestone
 
- Milestone 3 adds persistent production state and authentication/authorization boundaries on top of the deterministic AI orchestration. The fictional **Empire of Lies** demo runs through Showrunner, Writer, Director, Continuity, Drama Scoring, human approval, and mock generation.
+ Milestone 9 adds real-provider contracts on top of the production-scoped, approval-governed pipeline. The fictional **Empire of Lies** demo still runs deterministically with explicit mock mode, while server-only Gemini structured output/image and Vertex Veo video adapters are executable behind validated configuration.
 
  - 60 planned episodes, 60-90 seconds each, vertical 9:16
  - 4 characters, 3 locations, and 5 outlined episodes
@@ -13,7 +13,7 @@
  - Mock video provider and generation-job repository
  - Dashboard, series bible, characters, episodes, memory, continuity, and studio views
 
- This milestone does not call paid AI, video, voice, or cloud APIs. All agent implementations are deterministic fixtures behind replaceable interfaces.
+ Tests never call paid AI, video, voice, or cloud APIs: they use deterministic fakes or injected HTTP transports. Production integrations require explicit provider selection and server-side credentials.
 
  Persistence is PostgreSQL-ready through Prisma. Without `DATABASE_URL`, the app and tests use deterministic in-memory repositories; with `DATABASE_URL`, the runtime selects the Prisma repository. Auth.js provides pluggable production sessions, while `AUTH_MODE=mock` is the explicit local/test fallback. See [docs/REAL_AUTH_AND_CRUD.md](docs/REAL_AUTH_AND_CRUD.md) and [docs/PERSISTENCE_AND_AUTH.md](docs/PERSISTENCE_AND_AUTH.md).
 
@@ -23,7 +23,7 @@
 
  Milestone 6 adds provider-neutral shot planning and storyboard placeholders. The production workspace now supports scene shots, ordering, readiness checks, and continuity-aware production context without calling external generation services. See [docs/STORYBOARD_PRODUCTION.md](docs/STORYBOARD_PRODUCTION.md).
 
- Milestone 7 adds the approval-governed mock media lifecycle: prepare, estimate, approve, queue, process, complete, and review generated assets. See [docs/MEDIA_PROVIDER_PIPELINE.md](docs/MEDIA_PROVIDER_PIPELINE.md).
+ Milestone 7 adds the approval-governed media lifecycle: prepare, estimate, approve, submit, poll, complete, and review generated assets. See [docs/MEDIA_PROVIDER_PIPELINE.md](docs/MEDIA_PROVIDER_PIPELINE.md).
 
  Milestone 8 adds generated asset review, immutable version history, approval/rejection records, and preferred asset selection. See [docs/MEDIA_REVIEW_WORKFLOW.md](docs/MEDIA_REVIEW_WORKFLOW.md).
 
@@ -53,6 +53,10 @@
 
  Read the detailed design in [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [docs/SERIES_MEMORY.md](docs/SERIES_MEMORY.md), and [docs/PROVIDERS.md](docs/PROVIDERS.md), and [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md).
 
+ ## Provider setup
+
+ Copy `.env.example` to `.env.local` for local work. Keep `MEDIA_PROVIDER=mock` (or explicitly set both `IMAGE_PROVIDER` and `VIDEO_PROVIDER` to `mock`) for deterministic operation. Production rejects mock mode and requires the selected provider's key/project/location/storage configuration. See [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md).
+
  ## Future Integrations
 
- Future milestones can add authentication, persistent series data, Gemini/Vertex AI agents, voice synthesis, and real video providers without changing the `Agent<TInput, TOutput>` contracts or the orchestration state machine.
+ Future milestones can add voice synthesis and episode assembly without changing the `Agent<TInput, TOutput>` contracts, repository boundaries, or approval state machine.

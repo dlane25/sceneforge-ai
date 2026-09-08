@@ -1,6 +1,6 @@
 # Media Provider Pipeline
 
-Milestone 7 adds a provider-neutral, approval-governed media lifecycle for persisted storyboard shots.
+Milestones 7–9 provide a provider-neutral, approval-governed media lifecycle for persisted storyboard shots.
 
 ## Lifecycle
 
@@ -10,9 +10,9 @@ Milestone 7 adds a provider-neutral, approval-governed media lifecycle for persi
 
 ## Provider Contract
 
-`VideoProvider` accepts production hierarchy IDs, prompt snapshots, negative prompt, duration, aspect ratio, dimensions, seed, continuity constraints, and camera metadata without vendor coupling. It supports generate, image-to-video, extension, status, cancel, and estimate-cost operations.
+`MediaProvider` accepts provider-neutral prompt, negative prompt, duration, aspect ratio, dimensions, seed, and continuity constraints. Capability discovery determines which operations are available; unsupported operations return typed errors rather than silently falling back.
 
-`MockVideoProvider` is deterministic and performs no network work. It yields mock asset URIs and predictable queued/running/completed status progression.
+`MockMediaProvider` is deterministic and performs no network work. Gemini image and Vertex Veo adapters use server-only production transports; tests inject fakes and make no network calls.
 
 ## Persistence
 
@@ -36,4 +36,4 @@ All endpoints enforce authenticated production hierarchy and use sanitized error
 
 ## Limitations
 
-No real provider, upload, billing, final render, or cloud asset storage is included. Generated assets are deterministic `mock://` placeholders. A future provider adapter can implement the current contract and update job/asset state without changing service or domain APIs.
+Production adapters submit only after owner approval and require explicit provider configuration. No billing, final render, or deployment is included. A Vertex output URI points at configured storage; this milestone does not upload or sign media URLs.

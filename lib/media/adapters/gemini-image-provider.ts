@@ -1,209 +1,132 @@
-/**
- * Gemini Image Provider Adapter
- * Production adapter for Google Gemini image generation
- * 
- * Uses injectable transport for real/fake API calls.
- * Production: Uses ProductionGeminiImageTransport (builds real API requests)
- * Testing: Uses FakeGeminiImageTransport (deterministic, no network calls)
- */
-
-import type {
-  MediaProvider,
-  ProviderCapabilities,
-  ProviderGenerationRequest,
-  ProviderJobMetadata,
-  ProviderJobStatus,
-  NormalizedProviderError,
-} from '../providers/types';
-import { ProviderErrorCode } from '../providers/types';
 import type { GeminiImageTransport } from '../providers/transport';
-import { FakeGeminiImageTransport } from '../providers/transport';
 import { ProductionGeminiImageTransport } from '../providers/google-transport';
+import { normalizeProviderError, providerError, ProviderOperationError } from '../providers/errors';
+import {
+  ProviderErrorCode,
+  type MediaProvider,
+  type ProviderCapabilities,
+  type ProviderGenerationRequest,
+  type ProviderJobMetadata,
+  type ProviderJobStatus,
+} from '../providers/types';
+
+const DEFAULT_MODEL = 'gemini-3.1-flash-image';
+const SUPPORTED_MODELS = ['gemini-3.1-flash-image', 'gemini-3-pro-image', 'gemini-2.5-flash-image'];
 
 export class GeminiImageProvider implements MediaProvider {
-  readonly id = 'gemini-image';
+  readonly id = 'gemini-image' as const;
   readonly capabilities: ProviderCapabilities = {
     imageGeneration: true,
-    imageInpainting: true,
-    imageOutpainting: true,
-    imageMasking: true,
-    synchronous: false,
-    asyncWithPolling: true,
+    imageMasking: false,
+    imageInpainting: false,
+    imageOutpainting: false,
+    videoGeneration: false,
+    videoExtension: false,
+    imageToVideo: false,
+    synchronous: true,
+    asyncWithPolling: false,
     cancellation: false,
     costEstimation: true,
+    requestValidation: true,
     supportedAspectRatios: ['9:16', '16:9', '1:1'],
-    supportedResolutions: { min: 256, max: 2048 },
-    supportedModels: ['gemini-2.0-flash', 'gemini-1.5-pro'],
+    supportedResolutions: { min: 512, max: 4096 },
+    supportedModels: SUPPORTED_MODELS,
   };
 
-  private transport: GeminiImageTransport;
+  private readonly transport: GeminiImageTransport;
 
-  constructor(apiKey?: string, transport?: GeminiImageTransport) {
-    if (transport) {
-      this.transport = transport;
-    } else if (process.env.NODE_ENV === 'test') {
-      this.transport = new FakeGeminiImageTransport();
-    } else if (apiKey) {
-      this.transport = new ProductionGeminiImageTransport(apiKey);
-    } else {
-      throw new Error('GeminiImageProvider requires either transport or apiKey');
-    }
+  constructor(apiKey?: string, transport?: GeminiImageTransport, private readonly defaultModel = DEFAULT_MODEL, endpoint?: string) {
+    if (transport) this.transport = transport;
+    else if (apiKey) this.transport = new ProductionGeminiImageTransport(apiKey, undefined, endpoint);
+    else throw providerError(ProviderErrorCode.ConfigurationError, 'Gemini image provider configuration is incomplete');
   }
 
   async generateImage(request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
     try {
-      if (request.type !== 'image') {
-        throw new Error('GeminiImageProvider only supports image generation');
-      }
-
-      const width = this.parseResolution(request.width || 1024);
-      const height = this.parseResolution(request.height || 1024);
-
+      this.validateImageRequest(request);
+      const width = this.normalizeResolution(request.width || 1024);
+      const height = this.normalizeResolution(request.height || 1024);
+      const model = request.model || this.defaultModel;
+      if (!SUPPORTED_MODELS.includes(model)) throw providerError(ProviderErrorCode.InvalidRequest, 'Requested Gemini image model is not supported');
       const result = await this.transport.submitImageGeneration({
-        prompt: request.prompt || '',
-        negativePrompt: request.negativePrompt,
+        prompt: request.prompt!.trim(),
+        negativePrompt: request.negativePrompt?.trim() || undefined,
         width,
         height,
-        model: request.model || 'gemini-2.0-flash',
+        aspectRatio: request.aspectRatio || '1:1',
+        model,
       });
-
+      const now = new Date();
       return {
         jobId: result.jobId,
         provider: this.id,
-        model: request.model || 'gemini-2.0-flash',
-        status: 'queued',
+        model,
+        status: result.status,
         estimatedCost: result.estimatedCost,
-        createdAt: new Date(),
+        actualCost: result.actualCost,
+        output: result.output,
+        createdAt: now,
+        submittedAt: now,
+        lastUpdated: now,
+        lifecycleMetadata: result.metadata,
       };
     } catch (error) {
-      throw this.normalizeError(error);
+      if (error instanceof ProviderOperationError) throw error;
+      throw new ProviderOperationError(normalizeProviderError(error));
     }
-  }
-
-  async generateVideo(_request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
-    throw new Error(
-      `Provider ${this.id} does not support video generation. Use supported capabilities only.`
-    );
-  }
-
-  async extendVideo(_jobId: string, _request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
-    throw new Error(
-      `Provider ${this.id} does not support video extension. Use supported capabilities only.`
-    );
-  }
-
-  async imageToVideo(_imageUri: string, _request: ProviderGenerationRequest): Promise<ProviderJobMetadata> {
-    throw new Error(
-      `Provider ${this.id} does not support image-to-video. Use supported capabilities only.`
-    );
   }
 
   async getStatus(jobId: string): Promise<ProviderJobStatus> {
     try {
       const result = await this.transport.getImageGenerationStatus(jobId);
-
-      let normalizedError: NormalizedProviderError | undefined;
-      if (result.errorCode) {
-        normalizedError = this.normalizeProviderError(result.errorCode, result.errorMessage);
-      }
-
-      return {
-        jobId,
-        status: result.status as 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled',
-        outputUrl: result.outputUrl,
-        actualCost: result.actualCost,
-        error: normalizedError,
-        lastUpdated: new Date(),
-      };
+      const error = result.errorCode
+        ? normalizeProviderError(providerError(
+            result.errorCode.includes('POLICY') ? ProviderErrorCode.ContentPolicy : ProviderErrorCode.UnknownError,
+            result.errorMessage || 'Gemini image operation failed',
+            false,
+            result.errorCode
+          ))
+        : undefined;
+      return { jobId, status: result.status, progress: result.progress, output: result.output, outputUrl: result.output?.uri, actualCost: result.actualCost, error, lastUpdated: new Date(), lifecycleMetadata: result.metadata };
     } catch (error) {
-      throw this.normalizeError(error);
+      throw new ProviderOperationError(normalizeProviderError(error));
     }
   }
 
-  async cancelJob(jobId: string): Promise<ProviderJobStatus> {
-    throw new Error(
-      `Provider ${this.id} does not support job cancellation`
-    );
+  async cancelJob(...args: [string]): Promise<ProviderJobStatus> {
+    void args;
+    throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image generation does not support cancellation');
+  }
+
+  async generateVideo(...args: [ProviderGenerationRequest]): Promise<ProviderJobMetadata> {
+    void args;
+    throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image provider does not support video generation');
+  }
+
+  async extendVideo(...args: [string, ProviderGenerationRequest]): Promise<ProviderJobMetadata> {
+    void args;
+    throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image provider does not support video extension');
+  }
+
+  async imageToVideo(...args: [string, ProviderGenerationRequest]): Promise<ProviderJobMetadata> {
+    void args;
+    throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image provider does not support image-to-video generation');
   }
 
   async estimateCost(request: ProviderGenerationRequest): Promise<number> {
-    const model = request.model || 'gemini-2.0-flash';
-    const width = this.parseResolution(request.width || 1024);
-    const height = this.parseResolution(request.height || 1024);
-    
-    // Gemini pricing: $0.01 per mega-pixel
-    const megaPixels = (width * height) / 1_000_000;
-    const baseCost = model === 'gemini-2.0-flash' ? 0.01 : 0.015;
-    return Math.round(megaPixels * baseCost * 100);
+    this.validateImageRequest(request);
+    const megaPixels = (this.normalizeResolution(request.width || 1024) * this.normalizeResolution(request.height || 1024)) / 1_000_000;
+    return Number((megaPixels * 0.04).toFixed(4));
   }
 
-  private parseResolution(value: number): number {
-    const clamped = Math.max(256, Math.min(2048, value));
-    return Math.round(clamped / 256) * 256;
+  private validateImageRequest(request: ProviderGenerationRequest): void {
+    if (request.type !== 'image') throw providerError(ProviderErrorCode.UnsupportedCapability, 'Gemini image provider accepts image requests only');
+    if (!request.prompt?.trim()) throw providerError(ProviderErrorCode.InvalidRequest, 'Image prompt is required');
+    if (!['9:16', '16:9', '1:1'].includes(request.aspectRatio || '1:1')) throw providerError(ProviderErrorCode.InvalidRequest, 'Image aspect ratio is not supported');
   }
 
-  private normalizeProviderError(code: string, message?: string): NormalizedProviderError {
-    let providerErrorCode = ProviderErrorCode.UnknownError;
-    let retryable = false;
-
-    if (code.includes('QUOTA') || code.includes('RATE_LIMIT')) {
-      providerErrorCode = ProviderErrorCode.RateLimited;
-      retryable = true;
-    } else if (code.includes('AUTH') || code.includes('PERMISSION')) {
-      providerErrorCode = ProviderErrorCode.AuthenticationError;
-    } else if (code.includes('CONTENT') || code.includes('POLICY')) {
-      providerErrorCode = ProviderErrorCode.ContentPolicy;
-    } else if (code === 'TIMEOUT') {
-      providerErrorCode = ProviderErrorCode.ProviderTimeout;
-      retryable = true;
-    } else if (code === 'NOT_FOUND') {
-      providerErrorCode = ProviderErrorCode.UnknownError;
-    }
-
-    return {
-      code: providerErrorCode,
-      message: message || `Gemini provider error: ${code}`,
-      retryable,
-      timestamp: new Date(),
-      providerCode: code,
-    };
-  }
-
-  private normalizeError(error: unknown): NormalizedProviderError {
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-      
-      if (message.includes('api key') || message.includes('auth')) {
-        return {
-          code: ProviderErrorCode.AuthenticationError,
-          message: 'Authentication failed with Gemini provider',
-          retryable: false,
-          timestamp: new Date(),
-        };
-      }
-      
-      if (message.includes('does not support')) {
-        return {
-          code: ProviderErrorCode.UnsupportedCapability,
-          message: error.message,
-          retryable: false,
-          timestamp: new Date(),
-        };
-      }
-
-      return {
-        code: ProviderErrorCode.UnknownError,
-        message: error.message,
-        retryable: false,
-        timestamp: new Date(),
-      };
-    }
-
-    return {
-      code: ProviderErrorCode.UnknownError,
-      message: 'Unknown error from Gemini provider',
-      retryable: false,
-      timestamp: new Date(),
-    };
+  private normalizeResolution(value: number): number {
+    if (!Number.isFinite(value) || value <= 0) throw providerError(ProviderErrorCode.InvalidRequest, 'Image resolution must be a positive number');
+    return Math.max(512, Math.min(4096, Math.round(value)));
   }
 }

@@ -62,6 +62,6 @@ The shot model retains continuity requirements and notes. Persisted Series Memor
 
 This means future Writer and Director adapters can consume real production records while the current milestone remains deterministic.
 
-## Future Providers
+## Provider integration
 
-A future storyboard/image provider can replace the placeholder service by implementing a provider-neutral adapter. It should update `Storyboard.generationStatus`, `provider`, `generationJobId`, `referenceUrl`, and `version` without changing shot domain contracts or UI routes.
+Milestone 9 keeps storyboard placeholders provider-neutral while routing consequential media generation through `GenerationService`. Gemini image and Vertex Veo adapters write normalized `GeneratedAsset` records after owner approval; storyboard metadata remains a read-only planning surface and does not receive credentials or raw provider payloads.

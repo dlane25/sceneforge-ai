@@ -1,37 +1,36 @@
-/**
- * Provider Transport Abstraction
- * Allows injectable real and fake transports for Gemini and Vertex AI providers.
- * This enables production API calls while maintaining deterministic testing.
- */
+import type { ProviderLifecycleStatus, ProviderOutput } from './types';
 
-import type { ProviderGenerationRequest, ProviderJobMetadata, ProviderJobStatus, NormalizedProviderError } from './types';
+export interface TransportSubmission {
+  jobId: string;
+  status: ProviderLifecycleStatus;
+  estimatedCost?: number;
+  actualCost?: number;
+  output?: ProviderOutput;
+  metadata?: Record<string, unknown>;
+}
 
-/**
- * Transport interface for Gemini image generation
- */
+export interface TransportStatus {
+  status: ProviderLifecycleStatus;
+  progress?: number;
+  output?: ProviderOutput;
+  errorMessage?: string;
+  errorCode?: string;
+  actualCost?: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface GeminiImageTransport {
   submitImageGeneration(request: {
     prompt: string;
     negativePrompt?: string;
     width: number;
     height: number;
+    aspectRatio: '9:16' | '16:9' | '1:1';
     model: string;
-  }): Promise<{ jobId: string; estimatedCost?: number }>;
-  
-  getImageGenerationStatus(jobId: string): Promise<{
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }>;
-  
-  cancelImageGeneration(jobId: string): Promise<void>;
+  }): Promise<TransportSubmission>;
+  getImageGenerationStatus(jobId: string): Promise<TransportStatus>;
 }
 
-/**
- * Transport interface for Vertex AI video generation
- */
 export interface VertexVideoTransport {
   submitVideoGeneration(request: {
     prompt: string;
@@ -39,286 +38,80 @@ export interface VertexVideoTransport {
     duration: number;
     width: number;
     height: number;
+    aspectRatio: '9:16' | '16:9';
     model: string;
-  }): Promise<{ jobId: string; estimatedCost?: number }>;
-  
-  getVideoGenerationStatus(jobId: string): Promise<{
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }>;
-  
-  cancelVideoGeneration(jobId: string): Promise<void>;
+    seed?: number;
+  }): Promise<TransportSubmission>;
+  getVideoGenerationStatus(jobId: string): Promise<TransportStatus>;
 }
 
-/**
- * Fake Gemini transport for deterministic testing
- * Returns fake responses based on request content
- */
+function stableHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 export class FakeGeminiImageTransport implements GeminiImageTransport {
-  private jobs: Map<string, {
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }> = new Map();
+  private readonly jobs = new Map<string, TransportStatus>();
+  private sequence = 0;
 
-  async submitImageGeneration(request: {
-    prompt: string;
-    negativePrompt?: string;
-    width: number;
-    height: number;
-    model: string;
-  }): Promise<{ jobId: string; estimatedCost?: number }> {
-    const jobId = `fake-gemini-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    
-    // Deterministic: use prompt hash to determine status
-    const promptHash = this.hashPrompt(request.prompt);
-    const willFail = promptHash % 10 === 0; // 10% failure rate deterministically
-    
-    if (willFail) {
-      this.jobs.set(jobId, {
-        status: 'failed',
-        errorCode: 'CONTENT_POLICY_VIOLATION',
-        errorMessage: 'Fake content policy violation (deterministic)',
-      });
-    } else {
-      this.jobs.set(jobId, {
-        status: 'processing',
-      });
-    }
-    
-    return {
-      jobId,
-      estimatedCost: request.width * request.height / 1000 * 0.01, // Fake cost calculation
+  async submitImageGeneration(request: Parameters<GeminiImageTransport['submitImageGeneration']>[0]): Promise<TransportSubmission> {
+    this.sequence += 1;
+    const jobId = `fake-gemini-${stableHash(JSON.stringify(request))}-${this.sequence}`;
+    const output: ProviderOutput = {
+      uri: `fake://gemini/images/${jobId}.png`,
+      mimeType: 'image/png',
+      width: request.width,
+      height: request.height,
+      fileSize: 2048,
+      checksum: stableHash(jobId),
+      metadata: { transport: 'fake', model: request.model },
     };
+    const status: TransportStatus = { status: 'succeeded', progress: 100, output, actualCost: 0 };
+    this.jobs.set(jobId, status);
+    return { jobId, status: 'succeeded', estimatedCost: 0, actualCost: 0, output, metadata: { synchronous: true } };
   }
 
-  async getImageGenerationStatus(jobId: string): Promise<{
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }> {
-    const job = this.jobs.get(jobId);
-    if (!job) {
-      return {
-        status: 'failed',
-        errorCode: 'NOT_FOUND',
-        errorMessage: 'Job not found',
-      };
-    }
-
-    // Simulate progression: processing → succeeded
-    if (job.status === 'processing') {
-      job.status = 'succeeded';
-      job.outputUrl = `fake://gemini/images/${jobId}.png`;
-      job.actualCost = 0.001; // Fake actual cost
-      this.jobs.set(jobId, job);
-    }
-
-    return job;
-  }
-
-  async cancelImageGeneration(jobId: string): Promise<void> {
-    const job = this.jobs.get(jobId);
-    if (job) {
-      job.status = 'cancelled';
-      this.jobs.set(jobId, job);
-    }
-  }
-
-  private hashPrompt(prompt: string): number {
-    let hash = 0;
-    for (let i = 0; i < prompt.length; i++) {
-      const char = prompt.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return Math.abs(hash);
+  async getImageGenerationStatus(jobId: string): Promise<TransportStatus> {
+    return this.jobs.get(jobId) || { status: 'failed', errorCode: 'NOT_FOUND', errorMessage: 'Image job was not found' };
   }
 }
 
-/**
- * Fake Vertex AI video transport for deterministic testing
- */
 export class FakeVertexVideoTransport implements VertexVideoTransport {
-  private jobs: Map<string, {
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }> = new Map();
+  private readonly jobs = new Map<string, { polls: number; request: Parameters<VertexVideoTransport['submitVideoGeneration']>[0] }>();
+  private sequence = 0;
 
-  async submitVideoGeneration(request: {
-    prompt: string;
-    negativePrompt?: string;
-    duration: number;
-    width: number;
-    height: number;
-    model: string;
-  }): Promise<{ jobId: string; estimatedCost?: number }> {
-    const jobId = `fake-vertex-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    
-    // Deterministic: use prompt hash to determine status
-    const promptHash = this.hashPrompt(request.prompt);
-    const willFail = promptHash % 15 === 0; // ~7% failure rate
-    
-    if (willFail) {
-      this.jobs.set(jobId, {
-        status: 'failed',
-        errorCode: 'INVALID_REQUEST',
-        errorMessage: 'Fake invalid request (deterministic)',
-      });
-    } else {
-      this.jobs.set(jobId, {
-        status: 'queued',
-      });
-    }
-    
-    // Fake cost: (width * height * duration) / 1000 * price_per_frame
-    const estimatedCost = (request.width * request.height * request.duration) / 1000 * 0.05;
-    
-    return { jobId, estimatedCost };
+  async submitVideoGeneration(request: Parameters<VertexVideoTransport['submitVideoGeneration']>[0]): Promise<TransportSubmission> {
+    this.sequence += 1;
+    const jobId = `fake-vertex-${stableHash(JSON.stringify(request))}-${this.sequence}`;
+    this.jobs.set(jobId, { polls: 0, request });
+    return { jobId, status: 'queued', estimatedCost: Number((request.duration * 0.01).toFixed(2)), metadata: { transport: 'fake' } };
   }
 
-  async getVideoGenerationStatus(jobId: string): Promise<{
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }> {
+  async getVideoGenerationStatus(jobId: string): Promise<TransportStatus> {
     const job = this.jobs.get(jobId);
-    if (!job) {
-      return {
-        status: 'failed',
-        errorCode: 'NOT_FOUND',
-        errorMessage: 'Job not found',
-      };
-    }
-
-    // Simulate progression: queued → processing → succeeded
-    if (job.status === 'queued') {
-      job.status = 'processing';
-      this.jobs.set(jobId, job);
-    } else if (job.status === 'processing') {
-      job.status = 'succeeded';
-      job.outputUrl = `fake://vertex/videos/${jobId}.mp4`;
-      job.actualCost = 0.005; // Fake actual cost
-      this.jobs.set(jobId, job);
-    }
-
-    return job;
-  }
-
-  async cancelVideoGeneration(jobId: string): Promise<void> {
-    const job = this.jobs.get(jobId);
-    if (job && (job.status === 'queued' || job.status === 'processing')) {
-      job.status = 'cancelled';
-      this.jobs.set(jobId, job);
-    }
-  }
-
-  private hashPrompt(prompt: string): number {
-    let hash = 0;
-    for (let i = 0; i < prompt.length; i++) {
-      const char = prompt.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash);
-  }
-}
-
-/**
- * Default production Gemini transport (stub - real SDK would replace this)
- * This is a placeholder for actual Gemini API integration
- */
-export class DefaultGeminiImageTransport implements GeminiImageTransport {
-  constructor(private apiKey: string) {}
-
-  async submitImageGeneration(request: {
-    prompt: string;
-    negativePrompt?: string;
-    width: number;
-    height: number;
-    model: string;
-  }): Promise<{ jobId: string; estimatedCost?: number }> {
-    // TODO: Replace with actual Gemini API call
-    // This would use the Gemini SDK with this.apiKey
-    throw new Error(
-      'DefaultGeminiImageTransport: Real Gemini SDK integration not yet implemented. ' +
-      'Use FakeGeminiImageTransport for testing, or implement real integration for production.'
-    );
-  }
-
-  async getImageGenerationStatus(jobId: string): Promise<{
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }> {
-    throw new Error(
-      'DefaultGeminiImageTransport: Real Gemini SDK integration not yet implemented.'
-    );
-  }
-
-  async cancelImageGeneration(jobId: string): Promise<void> {
-    throw new Error(
-      'DefaultGeminiImageTransport: Real Gemini SDK integration not yet implemented.'
-    );
-  }
-}
-
-/**
- * Default production Vertex AI video transport (stub)
- * This is a placeholder for actual Vertex AI API integration
- */
-export class DefaultVertexVideoTransport implements VertexVideoTransport {
-  constructor(
-    private projectId: string,
-    private location: string,
-    private credentials?: unknown
-  ) {}
-
-  async submitVideoGeneration(request: {
-    prompt: string;
-    negativePrompt?: string;
-    duration: number;
-    width: number;
-    height: number;
-    model: string;
-  }): Promise<{ jobId: string; estimatedCost?: number }> {
-    // TODO: Replace with actual Vertex AI API call
-    // This would use the Vertex AI SDK with this.projectId and this.location
-    throw new Error(
-      'DefaultVertexVideoTransport: Real Vertex AI SDK integration not yet implemented. ' +
-      'Use FakeVertexVideoTransport for testing, or implement real integration for production.'
-    );
-  }
-
-  async getVideoGenerationStatus(jobId: string): Promise<{
-    status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-    outputUrl?: string;
-    errorMessage?: string;
-    errorCode?: string;
-    actualCost?: number;
-  }> {
-    throw new Error(
-      'DefaultVertexVideoTransport: Real Vertex AI SDK integration not yet implemented.'
-    );
-  }
-
-  async cancelVideoGeneration(jobId: string): Promise<void> {
-    throw new Error(
-      'DefaultVertexVideoTransport: Real Vertex AI SDK integration not yet implemented.'
-    );
+    if (!job) return { status: 'failed', errorCode: 'NOT_FOUND', errorMessage: 'Video job was not found' };
+    job.polls += 1;
+    if (job.polls === 1) return { status: 'processing', progress: 50 };
+    const { request } = job;
+    return {
+      status: 'succeeded',
+      progress: 100,
+      actualCost: Number((request.duration * 0.01).toFixed(2)),
+      output: {
+        uri: `fake://vertex/videos/${jobId}.mp4`,
+        storageUri: `fake://vertex/videos/${jobId}.mp4`,
+        mimeType: 'video/mp4',
+        width: request.width,
+        height: request.height,
+        durationSeconds: request.duration,
+        fileSize: 5_242_880,
+        checksum: stableHash(jobId),
+        metadata: { transport: 'fake', model: request.model },
+      },
+    };
   }
 }

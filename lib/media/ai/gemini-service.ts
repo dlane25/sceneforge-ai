@@ -1,3 +1,10 @@
+import 'server-only';
+
+import { z } from 'zod';
+import { FetchProviderHttpClient, type ProviderHttpClient } from '../providers/google-transport';
+import { providerError, providerHttpError } from '../providers/errors';
+import { ProviderErrorCode } from '../providers/types';
+
 /**
  * Gemini AI Adapter Service
  * Server-only production integration and deterministic testing facade
@@ -35,17 +42,13 @@ export interface GeminiTransport {
  * Provides structured AI operations with validation
  */
 export class GeminiService {
-  private apiKey: string;
-  private model: string;
-  private transport: GeminiTransport;
+  private readonly transport: GeminiTransport;
 
   constructor(
     apiKey: string,
     model: string = 'gemini-2.0-flash',
     transport?: GeminiTransport
   ) {
-    this.apiKey = apiKey;
-    this.model = model;
     this.transport = transport || new DefaultGeminiTransport(apiKey, model);
   }
 
@@ -191,14 +194,14 @@ Estimated Difficulty: ${difficulty}
 Available Providers:
 - mock: Deterministic testing provider
 - gemini-image: Google Gemini image generation
-- vertex-video: Google Vertex AI video (Veo 2)
+- vertex-video: Google Vertex AI video (Veo 2/Veo 3)
 
 Recommend:
 1. Best provider for this shot
 2. Best model for the provider
 3. Why this combination
 4. Estimated difficulty (easy/medium/hard)
-5. Suggested duration if video (1-120 seconds)
+5. Suggested duration if video (4, 6, or 8 seconds for current Veo models)
 6. Confidence (0-1)
 
 Return ONLY a JSON object matching:
@@ -251,24 +254,44 @@ Return ONLY a JSON object matching:
 }
 
 /**
- * Default Gemini transport (stub for real API calls)
- * In production, this would call the actual Gemini API
- * In tests, use a fake transport
+ * Executable Gemini structured-output transport. Tests inject a fake HTTP
+ * client or FakeGeminiTransport, so validation never contacts Google.
  */
 export class DefaultGeminiTransport implements GeminiTransport {
   constructor(
-    private apiKey: string,
-    private model: string
-  ) {}
+    private readonly apiKey: string,
+    private readonly model: string,
+    private readonly httpClient: ProviderHttpClient = new FetchProviderHttpClient(),
+    private readonly endpoint = 'https://generativelanguage.googleapis.com/v1beta'
+  ) {
+    if (!apiKey) throw providerError(ProviderErrorCode.ConfigurationError, 'Gemini API key is required');
+    if (!/^[A-Za-z0-9._-]+$/.test(model)) throw providerError(ProviderErrorCode.ConfigurationError, 'Gemini model identifier is invalid');
+  }
 
-  async call(_prompt: string, _responseSchema: unknown): Promise<unknown> {
-    // TODO: Implement real Gemini API call
-    // This is a stub that would normally:
-    // 1. Call Gemini API with structured output mode
-    // 2. Validate response against schema
-    // 3. Return parsed result
-
-    throw new Error('DefaultGeminiTransport not yet implemented. Use a fake transport for testing.');
+  async call(prompt: string, responseSchema: unknown): Promise<unknown> {
+    if (!(responseSchema instanceof z.ZodType)) throw providerError(ProviderErrorCode.InvalidRequest, 'A Zod response schema is required');
+    const response = await this.httpClient.request(`${this.endpoint}/models/${this.model}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': this.apiKey },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: z.toJSONSchema(responseSchema),
+        },
+      }),
+    });
+    if (response.status < 200 || response.status >= 300) throw providerHttpError(response.status, response.body);
+    const envelope = z.object({
+      candidates: z.array(z.object({
+        content: z.object({ parts: z.array(z.object({ text: z.string().optional() }).passthrough()).min(1) }).passthrough(),
+      }).passthrough()).min(1),
+    }).passthrough().safeParse(response.body);
+    if (!envelope.success) throw providerError(ProviderErrorCode.ProviderUnavailable, 'Gemini returned an invalid structured response', true);
+    const text = envelope.data.candidates[0].content.parts.find((part) => part.text)?.text;
+    if (!text) throw providerError(ProviderErrorCode.ProviderUnavailable, 'Gemini structured response contained no JSON text', true);
+    try { return JSON.parse(text); }
+    catch { throw providerError(ProviderErrorCode.ProviderUnavailable, 'Gemini returned malformed structured JSON', true); }
   }
 }
 
@@ -282,7 +305,8 @@ export class FakeGeminiTransport implements GeminiTransport {
     this.responses.set(key, response);
   }
 
-  async call(prompt: string, _responseSchema: unknown): Promise<unknown> {
+  async call(prompt: string, responseSchema: unknown): Promise<unknown> {
+    void responseSchema;
     const key = Buffer.from(prompt).toString('base64').substring(0, 16);
     const cached = this.responses.get(key);
 

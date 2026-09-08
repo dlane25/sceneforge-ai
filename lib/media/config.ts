@@ -1,153 +1,90 @@
-/**
- * Provider Configuration Loader
- * Server-only configuration for media providers
- */
+import 'server-only';
 
-import type { ProviderConfig } from './providers/types';
+import { PROVIDER_IDS, type ProviderConfig, type ProviderId } from './providers/types';
 
 export interface MediaProviderConfig {
-  /** Primary media provider ID (mock, gemini-image, vertex-video) */
   providerId: string;
-  /** Provider-specific configuration */
   config: ProviderConfig;
-  /** Whether to fail if provider unavailable */
   strict: boolean;
 }
 
 export interface GenerationConfig {
-  /** Image generation provider ID */
-  imageProvider: string;
-  /** Video generation provider ID */
-  videoProvider: string;
-  /** Gemini model name for AI enhancement */
+  imageProvider: ProviderId;
+  videoProvider: ProviderId;
   geminiModel: string;
-  /** Provider-specific configuration */
-  providers: {
-    [providerId: string]: ProviderConfig;
-  };
+  providers: Record<ProviderId, ProviderConfig>;
 }
 
-/**
- * Load provider configuration from environment
- * Server-side only
- */
-export function loadMediaProviderConfig(): MediaProviderConfig {
-  if (typeof window !== 'undefined') {
-    throw new Error('loadMediaProviderConfig must only be called server-side');
-  }
+type Environment = Record<string, string | undefined>;
 
-  const providerId = process.env.MEDIA_PROVIDER;
-  const strict = process.env.NODE_ENV === 'production';
+function providerId(value: string | undefined, name: string): ProviderId {
+  if (!value || !PROVIDER_IDS.includes(value as ProviderId)) throw new Error(`${name} must be one of: ${PROVIDER_IDS.join(', ')}`);
+  return value as ProviderId;
+}
 
-  // Production must have explicit provider
-  if (strict && !providerId) {
-    throw new Error(
-      'MEDIA_PROVIDER environment variable required in production. Set to: mock, gemini-image, or vertex-video'
-    );
-  }
+function testDefault(env: Environment): string | undefined { return env.NODE_ENV === 'test' ? 'mock' : undefined }
 
-  const finalProviderId = providerId || 'mock';
+export function loadGenerationConfig(env: Environment = process.env): GenerationConfig {
+  if (typeof window !== 'undefined') throw new Error('Generation configuration is server-only');
+  const fallback = env.MEDIA_PROVIDER || testDefault(env);
+  const imageProvider = providerId(env.IMAGE_PROVIDER || fallback, 'IMAGE_PROVIDER');
+  const videoProvider = providerId(env.VIDEO_PROVIDER || fallback, 'VIDEO_PROVIDER');
+  const strict = env.NODE_ENV === 'production';
+  if (strict && (imageProvider === 'mock' || videoProvider === 'mock')) throw new Error('Mock media providers are not allowed in production');
 
-  const config: ProviderConfig = {
-    apiKey: process.env.MEDIA_PROVIDER_API_KEY,
-    projectId: process.env.GOOGLE_CLOUD_PROJECT,
-    location: process.env.GOOGLE_CLOUD_LOCATION,
-    endpoint: process.env.MEDIA_PROVIDER_ENDPOINT,
+  const imageModel = env.GEMINI_IMAGE_MODEL || (env.NODE_ENV === 'test' ? 'mock-v1' : 'gemini-3.1-flash-image');
+  const videoModel = env.VERTEX_VIDEO_MODEL || (env.NODE_ENV === 'test' ? 'mock-v1' : 'veo-3.1-generate-001');
+  const providers: Record<ProviderId, ProviderConfig> = {
+    mock: { imageModel: 'mock-v1', videoModel: 'mock-v1' },
+    'gemini-image': {
+      apiKey: env.GEMINI_API_KEY || env.MEDIA_PROVIDER_API_KEY,
+      imageModel,
+      endpoint: env.GEMINI_API_ENDPOINT,
+    },
+    'vertex-video': {
+      projectId: env.GOOGLE_CLOUD_PROJECT,
+      location: env.GOOGLE_CLOUD_LOCATION,
+      outputStorageUri: env.VERTEX_OUTPUT_STORAGE_URI || env.GOOGLE_CLOUD_VIDEO_OUTPUT_URI,
+      videoModel,
+      endpoint: env.VERTEX_API_ENDPOINT,
+    },
   };
-
-  // Validate production configuration
-  if (strict && finalProviderId !== 'mock') {
+  if (strict) {
     const errors: string[] = [];
-
-    if (finalProviderId === 'gemini-image' && !config.apiKey) {
-      errors.push('MEDIA_PROVIDER_API_KEY required for gemini-image provider');
+    if (imageProvider === 'gemini-image') {
+      if (!providers['gemini-image'].apiKey) errors.push('GEMINI_API_KEY is required for the configured image provider');
+      if (!providers['gemini-image'].imageModel) errors.push('GEMINI_IMAGE_MODEL is required for the configured image provider');
     }
-
-    if (finalProviderId === 'vertex-video') {
-      if (!config.projectId) errors.push('GOOGLE_CLOUD_PROJECT required for vertex-video provider');
-      if (!config.location) errors.push('GOOGLE_CLOUD_LOCATION required for vertex-video provider');
+    if (videoProvider === 'vertex-video') {
+      if (!providers['vertex-video'].projectId) errors.push('GOOGLE_CLOUD_PROJECT is required for the configured video provider');
+      if (!providers['vertex-video'].location) errors.push('GOOGLE_CLOUD_LOCATION is required for the configured video provider');
+      if (!providers['vertex-video'].outputStorageUri) errors.push('VERTEX_OUTPUT_STORAGE_URI is required for the configured video provider');
+      if (!providers['vertex-video'].videoModel) errors.push('VERTEX_VIDEO_MODEL is required for the configured video provider');
     }
-
-    if (errors.length > 0) {
-      throw new Error(`Invalid production provider configuration:\n${errors.join('\n')}`);
-    }
+    if (errors.length) throw new Error(`Provider configuration is invalid: ${errors.join('; ')}`);
   }
-
-  return { providerId: finalProviderId, config, strict };
+  return { imageProvider, videoProvider, geminiModel: env.GEMINI_MODEL || 'gemini-2.5-flash', providers };
 }
 
-/**
- * Load generation configuration
- */
-export function loadGenerationConfig(): GenerationConfig {
-  if (typeof window !== 'undefined') {
-    throw new Error('loadGenerationConfig must only be called server-side');
-  }
-
-  const imageProvider = process.env.IMAGE_PROVIDER || process.env.MEDIA_PROVIDER || 'mock';
-  const videoProvider = process.env.VIDEO_PROVIDER || process.env.MEDIA_PROVIDER || 'mock';
-  const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-
-  const providers: { [key: string]: ProviderConfig } = {};
-
-  // Gemini Image
-  if (process.env.MEDIA_PROVIDER_API_KEY || process.env.GEMINI_API_KEY) {
-    providers['gemini-image'] = {
-      apiKey: process.env.MEDIA_PROVIDER_API_KEY || process.env.GEMINI_API_KEY,
-    };
-  }
-
-  // Vertex Video
-  if (process.env.GOOGLE_CLOUD_PROJECT || process.env.GOOGLE_CLOUD_LOCATION) {
-    providers['vertex-video'] = {
-      projectId: process.env.GOOGLE_CLOUD_PROJECT,
-      location: process.env.GOOGLE_CLOUD_LOCATION,
-      apiKey: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    };
-  }
-
-  // Mock
-  providers['mock'] = {};
-
-  return {
-    imageProvider,
-    videoProvider,
-    geminiModel,
-    providers,
-  };
+export function loadMediaProviderConfig(env: Environment = process.env): MediaProviderConfig {
+  const generation = loadGenerationConfig(env);
+  const id = providerId(env.MEDIA_PROVIDER || generation.videoProvider, 'MEDIA_PROVIDER');
+  return { providerId: id, config: generation.providers[id], strict: env.NODE_ENV === 'production' };
 }
 
-/**
- * Validate provider configuration
- */
 export function validateProviderConfig(config: MediaProviderConfig): string[] {
   const errors: string[] = [];
-
-  if (!config.providerId) {
-    errors.push('Provider ID is required');
+  if (!PROVIDER_IDS.includes(config.providerId as ProviderId)) errors.push('Provider ID is invalid');
+  if (config.strict && config.providerId === 'mock') errors.push('Mock provider is not allowed in production');
+  if (config.providerId === 'gemini-image') {
+    if (!config.config.apiKey) errors.push('Gemini API key is required');
+    if (!config.config.imageModel) errors.push('Gemini image model is required');
   }
-
-  // Production-specific checks
-  if (config.strict) {
-    if (config.providerId === 'mock') {
-      errors.push(
-        'Mock provider not allowed in production. Set MEDIA_PROVIDER to a production provider.'
-      );
-    }
-
-    if (config.providerId === 'gemini-image' && !config.config.apiKey) {
-      errors.push('Gemini Image provider requires API key in production');
-    }
-
-    if (config.providerId === 'vertex-video') {
-      if (!config.config.projectId) {
-        errors.push('Vertex Video provider requires GOOGLE_CLOUD_PROJECT in production');
-      }
-      if (!config.config.location) {
-        errors.push('Vertex Video provider requires GOOGLE_CLOUD_LOCATION in production');
-      }
-    }
+  if (config.providerId === 'vertex-video') {
+    if (!config.config.projectId) errors.push('Google Cloud project is required');
+    if (!config.config.location) errors.push('Google Cloud location is required');
+    if (!config.config.outputStorageUri) errors.push('Google Cloud video output URI is required');
+    if (!config.config.videoModel) errors.push('Vertex video model is required');
   }
-
   return errors;
 }

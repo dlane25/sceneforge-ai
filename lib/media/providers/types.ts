@@ -1,11 +1,9 @@
-/**
- * Provider Registry and Capability Types
- * Defines the contract for all media providers and their capabilities
- */
+export const PROVIDER_IDS = ['mock', 'gemini-image', 'vertex-video'] as const;
 
-/**
- * Provider capabilities describe what a provider can do
- */
+export type ProviderId = (typeof PROVIDER_IDS)[number];
+export type ProviderMediaType = 'image' | 'video';
+export type ProviderLifecycleStatus = 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
+
 export interface ProviderCapabilities {
   imageGeneration?: boolean;
   videoGeneration?: boolean;
@@ -19,85 +17,64 @@ export interface ProviderCapabilities {
   cancellation?: boolean;
   costEstimation?: boolean;
   supportedAspectRatios?: string[];
-  supportedDurations?: {
-    min: number; // seconds
-    max: number; // seconds
-  };
-  supportedResolutions?: {
-    min: number; // width in pixels
-    max: number; // width in pixels
-  };
+  supportedDurations?: { min: number; max: number };
+  supportedResolutions?: { min: number; max: number };
   supportedModels?: string[];
   requestValidation?: boolean;
 }
 
-/**
- * Provider configuration
- */
 export interface ProviderConfig {
   apiKey?: string;
   projectId?: string;
   location?: string;
   endpoint?: string;
+  outputStorageUri?: string;
+  imageModel?: string;
+  videoModel?: string;
   [key: string]: string | undefined;
 }
 
-/**
- * Provider information for registry
- */
 export interface ProviderInfo {
-  id: string;
+  id: ProviderId;
   name: string;
   description: string;
   capabilities: ProviderCapabilities;
   configRequired: (keyof ProviderConfig)[];
 }
 
-/**
- * Provider validation result
- */
 export interface ConfigValidationResult {
   valid: boolean;
   errors: string[];
   warnings: string[];
 }
 
-/**
- * Error codes for provider operations
- */
 export enum ProviderErrorCode {
-  ConfigurationError = 'configuration_error',
-  AuthenticationError = 'authentication_error',
+  ConfigurationError = 'configuration',
+  AuthenticationError = 'auth',
   RateLimited = 'rate_limited',
-  QuotaExceeded = 'quota_exceeded',
+  QuotaExceeded = 'quota',
   InvalidRequest = 'invalid_request',
-  UnsupportedCapability = 'unsupported_capability',
+  UnsupportedCapability = 'unsupported',
   ProviderUnavailable = 'provider_unavailable',
-  ProviderTimeout = 'provider_timeout',
+  ProviderTimeout = 'timeout',
   ContentPolicy = 'content_policy',
   Cancelled = 'cancelled',
-  UnknownError = 'unknown_provider_error',
+  UnknownError = 'unknown',
 }
 
-/**
- * Normalized provider error
- */
 export interface NormalizedProviderError {
   code: ProviderErrorCode;
   message: string;
   retryable: boolean;
-  providerCode?: string; // Keep provider-specific code for reference
+  providerCode?: string;
   timestamp: Date;
 }
 
-/**
- * Video generation request details
- */
 export interface ProviderGenerationRequest {
-  type?: 'image' | 'video';
+  type?: ProviderMediaType;
   prompt?: string;
   negativePrompt?: string;
-  duration?: number; // seconds (for video)
+  duration?: number;
   aspectRatio?: '9:16' | '16:9' | '1:1';
   width?: number;
   height?: number;
@@ -107,26 +84,9 @@ export interface ProviderGenerationRequest {
   continuityConstraints?: string[];
 }
 
-/**
- * Normalized provider job metadata
- */
-export interface ProviderJobMetadata {
-  jobId: string;
-  provider: string;
-  model: string;
-  status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-  estimatedCost?: number;
-  actualCost?: number;
-  outputUrl?: string;
-  createdAt: Date;
-  lastUpdated?: Date;
-}
-
-/**
- * Normalized provider output
- */
 export interface ProviderOutput {
   uri: string;
+  storageUri?: string;
   mimeType: string;
   width: number;
   height: number;
@@ -136,60 +96,47 @@ export interface ProviderOutput {
   metadata: Record<string, unknown>;
 }
 
-/**
- * Provider job status response
- */
+export interface ProviderJobMetadata {
+  jobId: string;
+  provider: ProviderId;
+  model: string;
+  status: ProviderLifecycleStatus;
+  estimatedCost?: number;
+  actualCost?: number;
+  output?: ProviderOutput;
+  createdAt: Date;
+  submittedAt: Date;
+  lastUpdated?: Date;
+  lifecycleMetadata?: Record<string, unknown>;
+}
+
 export interface ProviderJobStatus {
   jobId: string;
-  status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
-  progress?: number; // 0-100
+  status: ProviderLifecycleStatus;
+  progress?: number;
   outputUrl?: string;
   actualCost?: number;
   output?: ProviderOutput;
   error?: NormalizedProviderError;
   lastUpdated: Date;
+  lifecycleMetadata?: Record<string, unknown>;
 }
 
-/**
- * Abstract provider interface (internal to lib/media)
- */
 export interface MediaProvider {
-  readonly id: string;
+  readonly id: ProviderId;
   readonly capabilities: ProviderCapabilities;
-  
   generateImage(request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
   generateVideo(request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
   extendVideo(jobId: string, request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
   imageToVideo(imageUri: string, request: ProviderGenerationRequest): Promise<ProviderJobMetadata>;
-  
   getStatus(jobId: string): Promise<ProviderJobStatus>;
   cancelJob(jobId: string): Promise<ProviderJobStatus>;
-  
   estimateCost(request: ProviderGenerationRequest): Promise<number>;
 }
 
-/**
- * Provider registry interface
- */
 export interface IProviderRegistry {
-  /**
-   * Resolve a provider by ID with configuration
-   * Throws if provider not found or configuration invalid
-   */
   resolve(providerId: string, config: ProviderConfig): MediaProvider;
-  
-  /**
-   * Get information about all available providers
-   */
   listAvailable(): ProviderInfo[];
-  
-  /**
-   * Validate provider configuration
-   */
   validateConfig(providerId: string, config: ProviderConfig): ConfigValidationResult;
-  
-  /**
-   * Check if a provider is available (installed/configured)
-   */
   isAvailable(providerId: string): boolean;
 }

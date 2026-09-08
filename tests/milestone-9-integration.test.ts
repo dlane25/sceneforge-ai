@@ -6,8 +6,6 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GenerationService } from '@/lib/media/generation-service';
-import { GenerationJobRepository } from '@/lib/db/generation-job-repository';
 import { MockVideoProvider } from '@/lib/video/mock-provider';
 import type { GenerationJob, GeneratedAsset } from '@/types';
 import type { PersistenceRepository } from '@/lib/repositories';
@@ -82,7 +80,6 @@ class MockPersistenceRepository implements PersistenceRepository {
   }
 
   // Stub other required methods
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getUser() { return undefined; }
   async findUserByEmail() { return undefined; }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
