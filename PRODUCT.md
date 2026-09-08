@@ -272,6 +272,15 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Deterministic SRT/WebVTT caption tracks with review and download
 ✓ Nested authenticated APIs and integrated storyboard audio/caption UI
 
+### Milestone 11 (Current)
+✓ Canonical episode timelines built only from approved video, audio, and captions
+✓ Typed readiness validation with actionable stable issue codes
+✓ Immutable assembly versions with approval, rejection, and preferred selection
+✓ Approval-gated export jobs with retry, cancellation, and normalized artifact metadata
+✓ Vertical 1080x1920 H.264/AAC preset with caption modes and deterministic audio policy
+✓ Deterministic mock renderer and genuine server-only FFmpeg process/argument boundary
+✓ Integrated episode assembly and export command-center UI
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters

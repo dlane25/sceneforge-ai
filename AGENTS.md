@@ -43,3 +43,7 @@ Real AI and media provider integration must preserve provider-neutral architectu
 ## SceneForge AI Milestone 10
 
 Voice, audio, and captions must extend the existing provider, generation, repository, and review architecture. Keep character voice profiles provider-neutral and require explicit approved rights and consent for cloned, licensed, or uploaded-reference voices. Snapshot dialogue, voice, model, parameters, and cost before owner approval; never invoke a speech provider before that approval. Audio assets must use existing version/review/preferred governance, scoped by asset type. Caption timing must be deterministic when provider transcript timing is unavailable. Keep all credentials and production transports server-only, inject fakes in tests, and never log raw dialogue, audio, credentials, headers, or provider responses.
+
+## SceneForge AI Milestone 11
+
+Episode assembly and export must use repository-owned, approved production assets and deterministic canonical ordering. Never select pending/rejected media or bypass assembly/export owner approval. Keep assembly versions immutable, media-type selection scoped, validation codes typed, and render engines behind the server-only `ExportEngine` contract. FFmpeg must receive an argument array through a non-shell process, accept only validated managed/HTTPS inputs, and never expose filesystem paths, raw stderr, captions, dialogue, or source URIs in client errors or logs. Tests use deterministic mock/fake execution and make no network or real render calls.

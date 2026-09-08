@@ -35,3 +35,4 @@ export type {
 } from './continuity';
 export type { GenerationJob, GenerationJobStatus, GenerationType, GeneratedAsset, AssetType, MediaReview, MediaReviewInput, CaptionTrack, CaptionSegment, CaptionFormat, CaptionReviewStatus } from './generation';
 export type { DramaScore } from './drama';
+export type { AssemblyIssueCode, AssemblyIssueSeverity, AssemblyReviewState, AssemblyStatus, AssemblyValidationIssue, CaptionExportMode, EpisodeAssembly, EpisodeExportJob, EpisodeTimelineItem, ExportApprovalState, ExportErrorCode, ExportJobStatus, ExportPreset, ExportPresetId } from './assembly';

@@ -70,4 +70,6 @@ All routes require server-side authentication, validate nested identifiers and b
 
 Provider audit events include provider, model, safe voice/job/request identifiers, operation, status, elapsed time, and normalized error category. They exclude credentials, authorization headers, raw dialogue, raw audio, and raw provider responses.
 
-This milestone does not include music generation, a sound-effects library/editor, source-audio storage, word-level transcription, durable object storage, URL signing, FFmpeg composition, a multi-track timeline, final episode mixing, distribution, billing, deployment, or live database migration.
+Milestone 11 consumes approved preferred dialogue audio and caption tracks through repository contracts. Generated dialogue is aligned to its shot and replaces source-video audio deterministically; approved SRT/WebVTT can be omitted, burned in, or emitted as a sidecar. See [EPISODE_ASSEMBLY_EXPORT.md](EPISODE_ASSEMBLY_EXPORT.md).
+
+The product still does not include music generation, a sound-effects library/editor, source-audio storage, word-level transcription, durable object storage, URL signing, a full multi-track DAW, advanced episode mixing, distribution, billing, deployment, or live database migration.

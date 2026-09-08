@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeAssembly, EpisodeExportJob, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import type { Series } from '@/types';
 
 export type RepositoryRole = 'OWNER' | 'EDITOR' | 'VIEWER';
@@ -112,6 +112,14 @@ export interface ProductionDataRepository {
   getCaptionTrack(seriesId: string, episodeId: string, trackId: string): Promise<CaptionTrack | undefined>;
   listCaptionTracks(seriesId: string, episodeId: string): Promise<CaptionTrack[]>;
   updateCaptionTrack(track: CaptionTrack): Promise<CaptionTrack>;
+  createEpisodeAssembly(assembly: EpisodeAssembly): Promise<EpisodeAssembly>;
+  getEpisodeAssembly(seriesId: string, episodeId: string, assemblyId: string): Promise<EpisodeAssembly | undefined>;
+  listEpisodeAssemblies(seriesId: string, episodeId: string): Promise<EpisodeAssembly[]>;
+  updateEpisodeAssembly(assembly: EpisodeAssembly): Promise<EpisodeAssembly>;
+  createEpisodeExportJob(job: EpisodeExportJob): Promise<EpisodeExportJob>;
+  getEpisodeExportJob(seriesId: string, episodeId: string, jobId: string): Promise<EpisodeExportJob | undefined>;
+  listEpisodeExportJobs(seriesId: string, episodeId: string): Promise<EpisodeExportJob[]>;
+  updateEpisodeExportJob(job: EpisodeExportJob): Promise<EpisodeExportJob>;
 }
 
 export interface SeriesMemoryRepository {

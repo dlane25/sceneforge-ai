@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MockVideoProvider } from '@/lib/video/mock-provider';
-import type { CaptionTrack, GenerationJob, GeneratedAsset } from '@/types';
+import type { CaptionTrack, EpisodeAssembly, EpisodeExportJob, GenerationJob, GeneratedAsset } from '@/types';
 import type { PersistenceRepository } from '@/lib/repositories';
 
 // Mock repository for testing
@@ -155,6 +155,14 @@ class MockPersistenceRepository implements PersistenceRepository {
   async getCaptionTrack() { return undefined; }
   async listCaptionTracks() { return []; }
   async updateCaptionTrack(track: CaptionTrack) { return track; }
+  async createEpisodeAssembly(assembly: EpisodeAssembly) { return assembly; }
+  async getEpisodeAssembly() { return undefined; }
+  async listEpisodeAssemblies() { return []; }
+  async updateEpisodeAssembly(assembly: EpisodeAssembly) { return assembly; }
+  async createEpisodeExportJob(job: EpisodeExportJob) { return job; }
+  async getEpisodeExportJob() { return undefined; }
+  async listEpisodeExportJobs() { return []; }
+  async updateEpisodeExportJob(job: EpisodeExportJob) { return job; }
   
   // PipelineRepository methods
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

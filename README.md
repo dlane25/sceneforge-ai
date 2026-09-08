@@ -4,7 +4,7 @@
 
  ## Current Milestone
 
- Milestone 10 adds production-grade character voice profiles, rights/consent governance, approval-gated dialogue-to-audio generation, ElevenLabs speech transport, deterministic mock audio, audio asset review/versioning, and SRT/WebVTT captions. The fictional **Empire of Lies** demo still runs deterministically with explicit mock mode, while server-only Gemini image, Vertex Veo video, and ElevenLabs voice adapters are executable behind validated configuration.
+ Milestone 11 adds deterministic episode assembly from approved video, dialogue audio, and captions, immutable assembly versions, typed validation and owner review, plus approval-gated MP4 export through a deterministic mock engine or server-only local FFmpeg adapter. The fictional **Empire of Lies** demo still runs deterministically with explicit mock mode, while server-only Gemini image, Vertex Veo video, ElevenLabs voice, and local FFmpeg adapters are executable behind validated configuration.
 
  - 60 planned episodes, 60-90 seconds each, vertical 9:16
  - 4 characters, 3 locations, and 5 outlined episodes
@@ -31,6 +31,8 @@
 
  Milestone 10 adds voice, audio, and captions without bypassing generation or review governance. See [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
 
+ Milestone 11 adds episode assembly, timeline validation, version review, and export packaging. See [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md).
+
  ## Run Locally
 
  ```bash
@@ -55,12 +57,12 @@
 
  The pipeline is exposed at `/api/series/[id]/orchestrate`, `/api/pipelines/[id]`, `/api/pipelines/[id]/approve`, `/api/pipelines/[id]/reject`, and `/api/agent-executions`. Episode-level action routes are available under `/api/episodes/[id]`.
 
- Read the detailed design in [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [docs/SERIES_MEMORY.md](docs/SERIES_MEMORY.md), [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md), and [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
+ Read the detailed design in [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [docs/SERIES_MEMORY.md](docs/SERIES_MEMORY.md), [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md), [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md), and [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md).
 
  ## Provider setup
 
- Copy `.env.example` to `.env.local` for local work. Keep image, video, and audio providers explicitly set to `mock` for deterministic operation. Production rejects mock mode and requires every selected provider's server-side configuration. See [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md) and [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md).
+ Copy `.env.example` to `.env.local` for local work. Keep image, video, audio, and export providers explicitly set to `mock` for deterministic operation. Production rejects mock mode and requires every selected provider/engine's server-side configuration. See [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md), [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md), and [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md).
 
  ## Future Integrations
 
- Future milestones can add episode mixing and assembly without changing the `Agent<TInput, TOutput>` contracts, repository boundaries, or approval state machine.
+ Future milestones can add cloud rendering and distribution without changing the `Agent<TInput, TOutput>`, assembly, repository, export-engine, or approval boundaries.
