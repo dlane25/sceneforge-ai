@@ -35,3 +35,7 @@ Media jobs and assets must use the existing repository and production-service bo
 ## SceneForge AI Milestone 8
 
 Asset review must preserve history and require human decisions. Only approved assets can be preferred; never overwrite or silently discard prior versions. Review services must use repositories and production authorization, surface Series Memory blockers, and keep agents/provider adapters unable to bypass review governance.
+
+## SceneForge AI Milestone 9
+
+Real AI and media provider integration must preserve provider-neutral architecture. Implement provider registry with capability discovery, configuration validation, and explicit mock mode. Gemini AI operations must use structured output with Zod validation and deterministic fake transport for tests. Real provider adapters may execute only through server-side transports, while tests inject fakes and make no network calls. Generation remains behind the human approval gate. Provider operations must be auditable and error-normalized. All Milestones 1-8 behavior is fully preserved.

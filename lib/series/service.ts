@@ -6,6 +6,10 @@ import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, 
 export class ProductionService {
   constructor(private readonly repository: PersistenceRepository) {}
 
+  async authorizeMediaOperation(user: AuthenticatedUser, seriesId: string, role: 'OWNER' | 'VIEWER'): Promise<void> {
+    await this.requireRole(user, seriesId, role);
+  }
+
   async listAccessibleSeries(user: AuthenticatedUser): Promise<Series[]> {
     const persisted = await this.provisionUser(user);
     return this.repository.listAccessibleSeries(persisted.id);

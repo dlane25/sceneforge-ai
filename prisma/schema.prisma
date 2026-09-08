@@ -378,6 +378,7 @@ model GenerationJob {
   seriesId        String
   episodeId       String?
   provider        String
+  providerModel   String?
   model           String
   status          GenerationJobStatus
   promptVersion   String
@@ -391,6 +392,7 @@ model GenerationJob {
   generationType  String             @default("video")
   promptSnapshot  String             @default("")
   negativePromptSnapshot String?
+  generationParameters Json?
   durationSeconds Int                @default(0)
   aspectRatio     String             @default("9:16")
   errorCode       String?
@@ -398,17 +400,25 @@ model GenerationJob {
   cancelledAt     DateTime?
   outputAssetIds  String[]
   errorMessage    String?
+  lastProviderStatus String?
+  lastPolledAt    DateTime?
+  lastProviderError String?
+  providerMetadata Json?
+  completionMetadata Json?
   pipeline        PipelineRun?       @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
   series          Series             @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   episode         Episode?           @relation(fields: [episodeId], references: [id], onDelete: SetNull)
   createdAt       DateTime           @default(now())
   startedAt       DateTime?
+  submittedAt     DateTime?
   completedAt     DateTime?
+  failedAt        DateTime?
   updatedAt       DateTime           @updatedAt
   assets          GeneratedAsset[]
 
   @@index([seriesId, status, createdAt])
   @@index([pipelineId])
+  @@index([provider, providerJobId])
 }
 
 model GeneratedAsset {
@@ -420,12 +430,21 @@ model GeneratedAsset {
   shotId          String
   assetType       String
   uri             String
+  storageUri      String?
   mimeType        String
   width           Int
   height          Int
   durationSeconds Int?
+  fileSize        Int?
   provider        String
+  providerJobId   String?
+  providerModel   String?
   fingerprint     String
+  checksum        String?
+  generationParameters Json?
+  promptSnapshot  String?
+  negativePromptSnapshot String?
+  costMetadata    Json?
   version         Int      @default(1)
   parentAssetId   String?
   preferred       Boolean  @default(false)
@@ -437,6 +456,7 @@ model GeneratedAsset {
   reviews         MediaReview[]
 
   @@index([seriesId, episodeId, sceneId, shotId])
+  @@unique([generationJobId])
 }
 
 model MediaReview {

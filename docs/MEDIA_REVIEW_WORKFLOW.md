@@ -33,8 +33,8 @@ Comparison returns deterministic metadata for both versions: version, originatin
 
 ## Provider Harness
 
-The existing `VideoProvider` contract continues to define estimate, generation, status, and cancellation behavior. `MockVideoProvider` is the deterministic reference implementation. Future providers must preserve the contract, normalize errors, and never bypass generation or asset review governance.
+The `MediaProvider` contract defines estimate, generation, status, and capability-gated cancellation behavior. `MockMediaProvider` is the deterministic reference implementation; Gemini image and Vertex Veo adapters preserve the contract, normalize errors, and never bypass generation or asset review governance.
 
 ## Limitations
 
-No video playback, cloud storage, uploads, provider integration, final editing, or external review notifications are included. Media review UI expansion can consume these APIs without changing domain contracts.
+No final editing, uploads, billing, or external review notifications are included. Mock media remains metadata-only; production provider output is exposed as a safe URI and metadata without changing review governance.

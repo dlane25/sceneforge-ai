@@ -165,8 +165,10 @@ Provider-neutral interface supporting:
 - `estimateCost()`: Estimate generation cost
 
 Current implementation:
-- **MockVideoProvider**: Deterministic mock for development
-- Ready to swap in Veo, Kling, Seedance, Runway, etc. (no cost)
+- **MockMediaProvider**: Deterministic image/video provider for local and test mode
+- **GeminiImageProvider**: server-only Gemini image transport with fake-transport tests
+- **VertexAIVideoProvider**: server-only Vertex Veo long-running transport with fake-transport tests
+- Capability declarations explicitly mark unsupported extension, masking, image-to-video, and cancellation operations.
 
 ### 6. Generation Jobs
 
@@ -251,6 +253,10 @@ Shots and storyboard placeholders extend the persisted `Series -> Episode -> Sce
 ## Milestone 8 Media Review
 
 `MediaReviewService` persists human review decisions and asset selection through repository contracts. Assets remain historical; only approved assets may become preferred, replacing and superseding a prior preferred version without deletion. Review records retain actor, notes, rejection reason, and continuity assessment. Agents remain read-only consumers of this provider-neutral state.
+
+## Milestone 9 Real AI and media providers
+
+`ProviderRegistry` resolves stable `mock`, `gemini-image`, and `vertex-video` IDs with capability discovery and fail-fast configuration validation. `GeminiService` uses server-only structured output with Zod validation; its production transport is injectable and tests use deterministic fakes. Gemini image and Vertex Veo adapters normalize provider lifecycle, output, cost, and errors behind `MediaProvider`. `GenerationService` snapshots provider/model/request data before approval and only submits after owner approval; refresh is idempotent and repository-backed. Credentials and ADC tokens remain server-only, and safe provider audit events never include prompts, tokens, or raw responses.
 
 ## Milestone 2 AI Orchestration
 
