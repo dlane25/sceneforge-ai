@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "npm run check:startup && next start",
+    "check:startup": "node scripts/startup-check.mjs",
+    "validate:launch": "node scripts/validate-launch.mjs",
     "lint": "eslint",
     "test": "vitest run"
   },

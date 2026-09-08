@@ -1,2 +1,2 @@
 export * from './types';
-export { OrchestrationService, orchestrationService } from './service';
+export { OrchestrationService } from './service';

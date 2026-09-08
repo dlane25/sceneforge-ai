@@ -85,6 +85,7 @@ model Series {
   captionTracks    CaptionTrack[]
   episodeAssemblies EpisodeAssembly[]
   episodeExportJobs EpisodeExportJob[]
+  launchPackages    EpisodeLaunchPackage[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
@@ -166,6 +167,7 @@ model Episode {
   captionTracks CaptionTrack[]
   assemblies EpisodeAssembly[]
   exportJobs EpisodeExportJob[]
+  launchPackages EpisodeLaunchPackage[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -685,6 +687,86 @@ model EpisodeExportJob {
   @@unique([episodeId, exportVersion])
   @@index([seriesId, episodeId, status])
   @@index([assemblyId, createdAt])
+}
+
+model EpisodeLaunchPackage {
+  id                  String   @id
+  seriesId            String
+  episodeId           String
+  version             Int
+  inputHash           String
+  status              String
+  preferred           Boolean  @default(false)
+  preparedBy          String
+  explanation         String
+  seriesTitle         String
+  episodeNumber       Int
+  episodeTitle        String
+  approvedAssetIds    String[]
+  captionTrackId      String?
+  captionSidecarUri   String?
+  rightsAttestations  Json
+  approvalSummary     Json
+  continuitySummary   Json
+  readinessSnapshot   Json
+  validatedAt         DateTime?
+  requestedAt         DateTime?
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  supersededAt        DateTime?
+  series              Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  episode             Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  manifest            DeliveryManifest?
+  approvalHistory     LaunchApprovalRecord[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([episodeId, version])
+  @@index([seriesId, episodeId, preferred])
+  @@index([episodeId, inputHash])
+}
+
+model DeliveryManifest {
+  id                    String   @id
+  packageId             String   @unique
+  manifestVersion       String
+  seriesId              String
+  episodeId             String
+  assemblyId            String
+  assemblyVersion       Int
+  exportJobId           String
+  exportVersion         Int
+  outputId              String
+  outputFormat          String
+  width                 Int
+  height                Int
+  aspectRatio           String
+  videoCodec            String
+  audioCodec            String
+  durationMs            Int
+  fileSize              Int
+  checksum              String
+  captionMode           String
+  captionSidecarUri     String?
+  completedAt           DateTime
+  approvalState         String
+  safeOutputUri         String
+  package               EpisodeLaunchPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  createdAt             DateTime @default(now())
+
+  @@index([seriesId, episodeId, exportJobId])
+}
+
+model LaunchApprovalRecord {
+  id          String   @id
+  packageId   String
+  actorId     String
+  decision    String
+  note        String
+  decidedAt   DateTime
+  package     EpisodeLaunchPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@index([packageId, decidedAt])
 }
 
 model DramaEvaluation {

@@ -282,6 +282,16 @@ The FFmpeg transport is server-only and invokes a configured executable using an
 
 See [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md).
 
+## Milestone 12 Production Launch
+
+`ProductionReadinessService` deterministically composes application, provider/config, storage, governance, series, and episode checks. Reports preserve individual stable checks and remediation instead of collapsing launch state to a boolean. `OperationsService` normalizes generation, audio, and export jobs and flags stale states without mutating them.
+
+`EpisodeLaunchPackageService` creates a versioned delivery manifest and immutable handoff snapshot from the approved preferred assembly and completed approved export. Final launch approval is an additional owner gate with actor, note, time, readiness evidence, and history. Artifact/review/rights changes produce a new fingerprint and package version.
+
+The production boundary now includes same-origin API mutation enforcement, request/body limits, per-user/series costly-operation rate limiting, correlation IDs, normalized API errors, CSP/security headers, Auth.js cookie/redirect hardening, liveness/readiness, production persistence fail-fast, startup self-checks, a non-root standalone Docker image with FFmpeg, and deterministic CI/release gates.
+
+See [docs/PRODUCTION_LAUNCH.md](docs/PRODUCTION_LAUNCH.md).
+
 ## Milestone 2 AI Orchestration
 
 The production pipeline is explicit and auditable:

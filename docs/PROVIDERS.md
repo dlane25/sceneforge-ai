@@ -29,3 +29,5 @@ Provider credentials and Google ADC remain server-only. Use `.env.example` as th
 ## Governance
 
 `GenerationService` snapshots the request and estimate before approval, stores provider/job metadata, polls idempotently, and preserves generated asset history. A provider may not approve assets or change preferred review state. Unsupported capabilities return normalized errors rather than silently falling back.
+
+Production launch checks configuration contracts only; they do not call provider health or generation endpoints. Mock selection is a blocking production configuration failure, and unresolved job failure is a launch blocker until an approved replacement completes. See [PRODUCTION_LAUNCH.md](PRODUCTION_LAUNCH.md).

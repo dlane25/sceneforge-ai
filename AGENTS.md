@@ -47,3 +47,7 @@ Voice, audio, and captions must extend the existing provider, generation, reposi
 ## SceneForge AI Milestone 11
 
 Episode assembly and export must use repository-owned, approved production assets and deterministic canonical ordering. Never select pending/rejected media or bypass assembly/export owner approval. Keep assembly versions immutable, media-type selection scoped, validation codes typed, and render engines behind the server-only `ExportEngine` contract. FFmpeg must receive an argument array through a non-shell process, accept only validated managed/HTTPS inputs, and never expose filesystem paths, raw stderr, captions, dialogue, or source URIs in client errors or logs. Tests use deterministic mock/fake execution and make no network or real render calls.
+
+## SceneForge AI Milestone 12
+
+Production launch readiness must remain deterministic, typed, multi-check, and remediation-oriented. Never treat configuration presence as provider health, call paid providers from health/startup checks, publish content, or auto-approve/retry consequential work. Production must use Auth.js and Prisma explicitly and must reject mock providers, mock export, and in-memory persistence. Launch packages snapshot approved artifacts, readiness, rights/consent, and decisions; changed inputs create new versions without mutating approved history. Request IDs, logs, errors, health output, manifests, and storage references must never expose secrets, raw payloads, database URLs, server paths, or provider responses.

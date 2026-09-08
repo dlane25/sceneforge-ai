@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { orchestrationService } from '@/lib/orchestration';
+import { orchestrationService } from '@/lib/orchestration/runtime';
 import { requireSeriesAccess } from '@/lib/auth';
 import { apiError } from '@/lib/api';
 

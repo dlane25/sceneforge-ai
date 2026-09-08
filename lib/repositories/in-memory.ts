@@ -1,6 +1,6 @@
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';
-import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeAssembly, EpisodeExportJob, EpisodeInput, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
+import type { CaptionTrack, Character, CharacterInput, ContinuityFact, Episode, EpisodeAssembly, EpisodeExportJob, EpisodeInput, EpisodeLaunchPackage, GeneratedAsset, GenerationJob, Location, LocationInput, MediaReview, Scene, SceneInput, Series, Shot, ShotInput, Storyboard, StoryFact, StoryFactInput } from '@/types';
 import { EMPIRE_OF_LIES_CHARACTERS, EMPIRE_OF_LIES_SERIES, createEmpireOfLiesEpisodes } from '@/lib/mock';
 import type { PersistedUser, PersistenceRepository, ProductionMembershipRecord, PipelineStageStatus, SeriesInput } from './contracts';
 
@@ -27,6 +27,7 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   private captionTracks = new Map<string, CaptionTrack>();
   private episodeAssemblies = new Map<string, EpisodeAssembly>();
   private episodeExportJobs = new Map<string, EpisodeExportJob>();
+  private episodeLaunchPackages = new Map<string, EpisodeLaunchPackage>();
 
   constructor() {
     this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() }));
@@ -104,6 +105,10 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
   async getEpisodeExportJob(seriesId: string, episodeId: string, jobId: string): Promise<EpisodeExportJob | undefined> { const value = this.episodeExportJobs.get(jobId); return value?.seriesId === seriesId && value.episodeId === episodeId ? clone(value) : undefined; }
   async listEpisodeExportJobs(seriesId: string, episodeId: string): Promise<EpisodeExportJob[]> { return [...this.episodeExportJobs.values()].filter((value) => value.seriesId === seriesId && value.episodeId === episodeId).sort((a, b) => a.exportVersion - b.exportVersion).map(clone); }
   async updateEpisodeExportJob(job: EpisodeExportJob): Promise<EpisodeExportJob> { if (!this.episodeExportJobs.has(job.id)) throw new Error(`Episode export job ${job.id} was not found`); this.episodeExportJobs.set(job.id, clone(job)); return clone(job); }
+  async createEpisodeLaunchPackage(value: EpisodeLaunchPackage): Promise<EpisodeLaunchPackage> { if (this.episodeLaunchPackages.has(value.id)) throw new Error(`Episode launch package ${value.id} already exists`); this.episodeLaunchPackages.set(value.id, clone(value)); return clone(value); }
+  async getEpisodeLaunchPackage(seriesId: string, episodeId: string, packageId: string): Promise<EpisodeLaunchPackage | undefined> { const value = this.episodeLaunchPackages.get(packageId); return value?.seriesId === seriesId && value.episodeId === episodeId ? clone(value) : undefined; }
+  async listEpisodeLaunchPackages(seriesId: string, episodeId: string): Promise<EpisodeLaunchPackage[]> { return [...this.episodeLaunchPackages.values()].filter((value) => value.seriesId === seriesId && value.episodeId === episodeId).sort((a, b) => a.version - b.version).map(clone); }
+  async updateEpisodeLaunchPackage(value: EpisodeLaunchPackage): Promise<EpisodeLaunchPackage> { if (!this.episodeLaunchPackages.has(value.id)) throw new Error(`Episode launch package ${value.id} was not found`); this.episodeLaunchPackages.set(value.id, clone(value)); return clone(value); }
   async create(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
   async get(id: string): Promise<PipelineRun | undefined> { const value = this.pipelines.get(id); return value ? clone(value) : undefined; }
   async update(pipeline: PipelineRun): Promise<PipelineRun> { this.pipelines.set(pipeline.id, clone(pipeline)); return clone(pipeline); }
@@ -124,7 +129,7 @@ export class InMemoryPersistenceRepository implements PersistenceRepository {
       return true;
     });
   }
-  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.generationJobs.clear(); this.assets.clear(); this.reviews.clear(); this.captionTracks.clear(); this.episodeAssemblies.clear(); this.episodeExportJobs.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
+  async reset(): Promise<void> { this.users.clear(); this.memberships.clear(); this.pipelines.clear(); this.executions.clear(); this.facts.clear(); this.stages.clear(); this.series.clear(); this.characters.clear(); this.locations.clear(); this.episodes.clear(); this.scenes.clear(); this.storyFacts.clear(); this.shots.clear(); this.storyboards.clear(); this.generationJobs.clear(); this.assets.clear(); this.reviews.clear(); this.captionTracks.clear(); this.episodeAssemblies.clear(); this.episodeExportJobs.clear(); this.episodeLaunchPackages.clear(); this.series.set(EMPIRE_OF_LIES_SERIES.id, clone({ ...EMPIRE_OF_LIES_SERIES, characters: EMPIRE_OF_LIES_CHARACTERS, episodes: createEmpireOfLiesEpisodes() })); }
 }
 
 export const memoryRepository = new InMemoryPersistenceRepository();

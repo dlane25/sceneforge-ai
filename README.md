@@ -4,7 +4,7 @@
 
  ## Current Milestone
 
- Milestone 11 adds deterministic episode assembly from approved video, dialogue audio, and captions, immutable assembly versions, typed validation and owner review, plus approval-gated MP4 export through a deterministic mock engine or server-only local FFmpeg adapter. The fictional **Empire of Lies** demo still runs deterministically with explicit mock mode, while server-only Gemini image, Vertex Veo video, ElevenLabs voice, and local FFmpeg adapters are executable behind validated configuration.
+ Milestone 12 makes the complete workflow launch-operational with multi-level readiness, unified job monitoring, stale detection, rights/content launch gates, delivery manifests, final owner-approved launch packages, health checks, correlation IDs, request/rate-limit hardening, secure headers, startup self-checks, standalone container packaging, and CI/release gates. The fictional **Empire of Lies** demo remains deterministic in explicit mock mode; production rejects mock providers, mock export, and in-memory persistence.
 
  - 60 planned episodes, 60-90 seconds each, vertical 9:16
  - 4 characters, 3 locations, and 5 outlined episodes
@@ -33,6 +33,8 @@
 
  Milestone 11 adds episode assembly, timeline validation, version review, and export packaging. See [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md).
 
+ Milestone 12 adds production launch readiness and internal delivery handoff. See [docs/PRODUCTION_LAUNCH.md](docs/PRODUCTION_LAUNCH.md).
+
  ## Run Locally
 
  ```bash
@@ -49,6 +51,7 @@
  npm run lint
  npm test
  npm run build
+ npm run validate:launch
  ```
 
  ## Architecture
@@ -57,7 +60,7 @@
 
  The pipeline is exposed at `/api/series/[id]/orchestrate`, `/api/pipelines/[id]`, `/api/pipelines/[id]/approve`, `/api/pipelines/[id]/reject`, and `/api/agent-executions`. Episode-level action routes are available under `/api/episodes/[id]`.
 
- Read the detailed design in [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [docs/SERIES_MEMORY.md](docs/SERIES_MEMORY.md), [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md), [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md), and [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md).
+ Read the detailed design in [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [docs/SERIES_MEMORY.md](docs/SERIES_MEMORY.md), [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/REAL_AI_MEDIA_PROVIDERS.md](docs/REAL_AI_MEDIA_PROVIDERS.md), [docs/VOICE_AUDIO_CAPTIONS.md](docs/VOICE_AUDIO_CAPTIONS.md), [docs/EPISODE_ASSEMBLY_EXPORT.md](docs/EPISODE_ASSEMBLY_EXPORT.md), and [docs/PRODUCTION_LAUNCH.md](docs/PRODUCTION_LAUNCH.md).
 
  ## Provider setup
 
@@ -65,4 +68,4 @@
 
  ## Future Integrations
 
- Future milestones can add cloud rendering and distribution without changing the `Agent<TInput, TOutput>`, assembly, repository, export-engine, or approval boundaries.
+ Production deployment still requires operator-supplied secrets, PostgreSQL migration, durable media volumes/storage, TLS/proxy configuration, and operational monitoring. Publishing and social distribution remain outside this repository.

@@ -281,6 +281,14 @@ The next milestone can replace deterministic agents with Gemini/Vertex AI adapte
 ✓ Deterministic mock renderer and genuine server-only FFmpeg process/argument boundary
 ✓ Integrated episode assembly and export command-center UI
 
+### Milestone 12 (Current)
+✓ Typed application, series, episode, provider, storage, export, and governance readiness
+✓ Unified operations, stale-job detection, remediation, and retry/recovery audit
+✓ Rights/consent and rejected-content final launch gates
+✓ Deterministic delivery manifests and immutable owner-approved launch packages
+✓ Launch dashboard, health checks, correlation IDs, rate limits, and request/security hardening
+✓ Production environment contract, startup self-check, non-root FFmpeg container, CI, and one-command launch validation
+
 ### Milestone 3 (Current)
 ✓ Normalized Prisma/PostgreSQL production schema
 ✓ Repository interfaces with Prisma and deterministic in-memory adapters

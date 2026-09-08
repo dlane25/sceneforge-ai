@@ -73,3 +73,7 @@ Provider audit events include provider, model, safe voice/job/request identifier
 Milestone 11 consumes approved preferred dialogue audio and caption tracks through repository contracts. Generated dialogue is aligned to its shot and replaces source-video audio deterministically; approved SRT/WebVTT can be omitted, burned in, or emitted as a sidecar. See [EPISODE_ASSEMBLY_EXPORT.md](EPISODE_ASSEMBLY_EXPORT.md).
 
 The product still does not include music generation, a sound-effects library/editor, source-audio storage, word-level transcription, durable object storage, URL signing, a full multi-track DAW, advanced episode mixing, distribution, billing, deployment, or live database migration.
+
+## Production launch gate
+
+Milestone 12 treats cloned, licensed, and uploaded-reference voice rights/consent as an explicit series and episode blocker. Launch reports identify only character, source type, confirmations, review state, and remediation; reference material remains private. Final packages snapshot approved caption identity/sidecar and rights attestations so later changes create a new package version. See [PRODUCTION_LAUNCH.md](PRODUCTION_LAUNCH.md).
