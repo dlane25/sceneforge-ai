@@ -97,6 +97,8 @@ describe('operations, configuration, health, and request hardening', () => {
     const reference = await new DeclaredHttpsStorageInspector(() => new Date('2026-01-01T00:00:00Z')).inspect('https://media.example/final.mp4', { id: 'final', mimeType: 'video/mp4', visibility: 'public' });
     expect(reference).toMatchObject({ exists: true, uri: 'https://media.example/final.mp4', mimeType: 'video/mp4' });
     const production = Object.fromEntries(launchSecurityHeaders('production').map((header) => [header.key, header.value])); const development = Object.fromEntries(launchSecurityHeaders('development').map((header) => [header.key, header.value]));
+    const formAction = production['Content-Security-Policy']?.split('; ').find((directive) => directive.startsWith('form-action '));
+    expect(formAction).toBe("form-action 'self' https://accounts.google.com");
     expect(production['Content-Security-Policy']).toContain("media-src 'self' data: blob: https:"); expect(production['Strict-Transport-Security']).toContain('max-age=31536000'); expect(development['Strict-Transport-Security']).toBeUndefined();
   });
 });
