@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { runtimeRepository } from '@/lib/repositories';
 import { EpisodeLaunchPackageService } from './package-service';
 import { loadStaleThresholds, OperationsService } from './operations-service';

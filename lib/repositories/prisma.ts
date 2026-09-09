@@ -1,3 +1,5 @@
+import 'server-only';
+
 import type { PrismaClient } from '@prisma/client';
 import type { AgentExecution } from '@/lib/agents';
 import type { ApprovalDecision, PipelineRun } from '@/lib/orchestration';

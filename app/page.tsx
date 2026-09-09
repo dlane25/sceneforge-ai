@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { MainLayout } from '@/components/layout/main-layout';
 import { SeriesCard } from '@/components/series/series-card';

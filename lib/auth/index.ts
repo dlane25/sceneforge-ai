@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { runtimeRepository } from '@/lib/repositories';
 import type { MembershipRepository, PersistedUser, PersistenceRepository } from '@/lib/repositories';
 import { AuthorizationError, AuthenticationError } from './types';

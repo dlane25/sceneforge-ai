@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { runtimeRepository } from '@/lib/repositories';
 import { OrchestrationService } from './service';
 
