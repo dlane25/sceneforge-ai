@@ -7,7 +7,7 @@ import { OrchestrationService } from '@/lib/orchestration';
 const owner: AuthenticatedUser = { id: 'storyboard-owner', email: 'storyboard@example.test', displayName: 'Storyboard Owner', provider: 'mock', subject: 'storyboard-owner' };
 const input = { title: 'Storyboard Test', logline: 'A production.', genre: 'Drama', targetAudience: 'Adults', visualStyle: 'Cinematic', episodeCount: 4, episodeDurationSeconds: 75 };
 
-async function setup() { const repository = new InMemoryPersistenceRepository(); const service = new ProductionService(repository); const series = await service.createSeries(owner, input); const episode = await service.createEpisode(owner, series.id, { episodeNumber: 1, title: 'Opening', synopsis: 'Opening.' }); const scene = await service.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Opening scene', description: 'Scene.' }); return { repository, service, series, episode, scene }; }
+async function setup() { const repository = new InMemoryPersistenceRepository(); const service = new ProductionService(repository); const series = await service.createSeries(owner, input); const episode = await service.createEpisode(owner, series.id, { episodeNumber: 1, title: 'Opening', synopsis: 'Opening.' }); const location = await service.createLocation(owner, series.id, { name: 'Office', description: 'Opening location.' }); const scene = await service.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Opening scene', description: 'Scene.', locationId: location.id }); return { repository, service, series, episode, scene }; }
 
 describe('storyboard production', () => {
   it('creates, orders, and persists shots with a storyboard placeholder', async () => {

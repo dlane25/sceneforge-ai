@@ -20,7 +20,8 @@ async function setup() {
   await production.addMember(owner, series.id, { email: viewer.email, role: 'VIEWER' });
   const character = await production.createCharacter(owner, series.id, { name: 'Mara', role: 'protagonist', age: 30, appearance: 'Dark coat', wardrobe: 'Black coat', personality: 'Direct', voiceProfile: { tone: 'warm', pace: 'normal' } });
   const episode = await production.createEpisode(owner, series.id, { episodeNumber: 1, title: 'One', synopsis: 'Opening.' });
-  const scene = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'Night.' });
+  const location = await production.createLocation(owner, series.id, { name: 'Office', description: 'Night.' });
+  const scene = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'Night.', locationId: location.id });
   const shot = await production.createShot(owner, series.id, episode.id, scene.id, { shotNumber: 1, description: 'Mara speaks.', dialogue: 'Go now.', durationSeconds: 4, characterIds: [character.id], visualPrompt: 'Mara speaks' });
   const now = new Date('2026-01-01T00:00:00Z');
   const common = { seriesId: series.id, episodeId: episode.id, sceneId: scene.id, shotId: shot.id, provider: 'mock', reviewStatus: 'approved' as const, preferred: true, version: 1, createdAt: now, updatedAt: now };

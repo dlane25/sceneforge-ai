@@ -31,9 +31,11 @@ describe('production data foundation', () => {
   it('rejects duplicate episode and scene numbers', async () => {
     const { service, series } = await setup();
     const episode = await service.createEpisode(editor, series.id, { episodeNumber: 1, title: 'One', synopsis: 'One.' });
+    const location = await service.createLocation(editor, series.id, { name: 'Office', description: 'Production office.' });
     await expect(service.createEpisode(editor, series.id, { episodeNumber: 1, title: 'Duplicate', synopsis: 'Duplicate.' })).rejects.toThrow('unique');
-    await service.createScene(editor, series.id, episode.id, { sceneNumber: 1, title: 'Opening', description: 'Open.' });
-    await expect(service.createScene(editor, series.id, episode.id, { sceneNumber: 1, title: 'Duplicate', description: 'Duplicate.' })).rejects.toThrow('unique');
+    await service.createScene(editor, series.id, episode.id, { sceneNumber: 1, title: 'Opening', description: 'Open.', locationId: location.id });
+    expect((await service.listEpisodes(editor, series.id))[0].scenes.map((scene) => scene.sceneNumber)).toEqual([1]);
+    await expect(service.createScene(editor, series.id, episode.id, { sceneNumber: 1, title: 'Duplicate', description: 'Duplicate.', locationId: location.id })).rejects.toThrow('unique');
   });
 
   it('rejects cross-production location references and persists temporal story facts', async () => {

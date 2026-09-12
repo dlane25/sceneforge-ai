@@ -19,8 +19,9 @@ async function setup(options: { missingSecondVideo?: boolean; missingAudio?: boo
   await production.addMember(owner, series.id, { email: viewer.email, displayName: viewer.displayName, role: 'VIEWER' });
   const character = await production.createCharacter(owner, series.id, { name: 'Mara', role: 'protagonist', age: 30, appearance: 'Dark coat', wardrobe: 'Black coat', personality: 'Direct', voiceProfile: { tone: 'warm', pace: 'normal' } });
   const episode = await production.createEpisode(owner, series.id, { episodeNumber: 1, title: 'One', synopsis: 'Opening.' });
-  const sceneTwo = await production.createScene(owner, series.id, episode.id, { sceneNumber: 2, title: 'Hall', description: 'Later.' });
-  const sceneOne = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'First.' });
+  const location = await production.createLocation(owner, series.id, { name: 'Office', description: 'Office and hall.' });
+  const sceneTwo = await production.createScene(owner, series.id, episode.id, { sceneNumber: 2, title: 'Hall', description: 'Later.', locationId: location.id });
+  const sceneOne = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'First.', locationId: location.id });
   const shotTwo = await production.createShot(owner, series.id, episode.id, sceneTwo.id, { shotNumber: 1, description: 'Exit.', durationSeconds: 3, visualPrompt: 'Exit hall' });
   const shotOne = await production.createShot(owner, series.id, episode.id, sceneOne.id, { shotNumber: 1, description: 'Speak.', dialogue: 'We leave now.', durationSeconds: 4, characterIds: [character.id], visualPrompt: 'Mara speaks' });
   const firstVideo = asset({ id: 'video-one-v1', generationJobId: 'g-video-one-v1', seriesId: series.id, episodeId: episode.id, sceneId: sceneOne.id, shotId: shotOne.id, assetType: 'video-clip', durationSeconds: 4, version: 1, preferred: true });

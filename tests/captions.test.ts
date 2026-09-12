@@ -12,7 +12,8 @@ async function setup() {
   const series = await production.createSeries(owner, { title: 'Captions', logline: 'Timed dialogue.', genre: 'Drama', targetAudience: 'Adults', visualStyle: 'Cinematic', episodeCount: 1, episodeDurationSeconds: 60 });
   const character = await production.createCharacter(owner, series.id, { name: 'Mara', role: 'protagonist', age: 32, appearance: 'Dark coat', wardrobe: 'Black coat', personality: 'Direct', voiceProfile: { tone: 'warm', pace: 'normal' } });
   const episode = await production.createEpisode(owner, series.id, { episodeNumber: 1, title: 'One', synopsis: 'Opening.' });
-  const scene = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'Late at night.' });
+  const location = await production.createLocation(owner, series.id, { name: 'Office', description: 'Late at night.' });
+  const scene = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'Late at night.', locationId: location.id });
   await production.createShot(owner, series.id, episode.id, scene.id, { shotNumber: 1, description: 'Silence.', durationSeconds: 2, visualPrompt: 'Empty office' });
   await production.createShot(owner, series.id, episode.id, scene.id, { shotNumber: 2, description: 'Mara speaks.', dialogue: 'We have one chance.', durationSeconds: 4, characterIds: [character.id], visualPrompt: 'Mara turns' });
   await production.createShot(owner, series.id, episode.id, scene.id, { shotNumber: 3, description: 'Mara continues.', dialogue: 'Do not waste it.', durationSeconds: 3, characterIds: [character.id], visualPrompt: 'Mara watches' });

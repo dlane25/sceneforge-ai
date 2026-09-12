@@ -13,11 +13,13 @@ export interface ObservabilityEvent {
   actorId?: string;
   status?: string;
   errorCode?: string;
+  prismaCode?: string;
+  prismaMeta?: Record<string, string | string[]>;
   blockingCount?: number;
   warningCount?: number;
   durationMs?: number;
 }
 
 export interface ObservabilitySink { write(value: ObservabilityEvent): void }
-export const consoleObservabilitySink: ObservabilitySink = { write(value) { const { event, requestId, seriesId, episodeId, resourceId, actorId, status, errorCode, blockingCount, warningCount, durationMs } = value; const entry = { event, requestId, seriesId, episodeId, resourceId, actorId, status, errorCode, blockingCount, warningCount, durationMs, timestamp: new Date().toISOString() }; if (errorCode || event.endsWith('failure')) console.error(JSON.stringify(entry)); else console.info(JSON.stringify(entry)); } };
+export const consoleObservabilitySink: ObservabilitySink = { write(value) { const { event, requestId, seriesId, episodeId, resourceId, actorId, status, errorCode, prismaCode, prismaMeta, blockingCount, warningCount, durationMs } = value; const entry = { event, requestId, seriesId, episodeId, resourceId, actorId, status, errorCode, prismaCode, prismaMeta, blockingCount, warningCount, durationMs, timestamp: new Date().toISOString() }; if (errorCode || event.endsWith('failure')) console.error(JSON.stringify(entry)); else console.info(JSON.stringify(entry)); } };
 export const silentObservabilitySink: ObservabilitySink = { write() {} };

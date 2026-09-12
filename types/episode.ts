@@ -142,7 +142,7 @@ export interface SceneInput {
   sceneNumber: number;
   title: string;
   description: string;
-  locationId?: string;
+  locationId: string;
   timeOfDay?: string;
   estimatedDurationSeconds?: number;
   status?: 'draft' | 'approved' | 'shot' | 'archived';

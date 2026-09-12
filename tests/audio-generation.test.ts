@@ -20,7 +20,8 @@ async function setup(sourceType: 'synthetic' | 'cloned' = 'synthetic', consentCo
     },
   });
   const episode = await production.createEpisode(owner, series.id, { episodeNumber: 1, title: 'One', synopsis: 'Opening.' });
-  const scene = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'Late at night.' });
+  const location = await production.createLocation(owner, series.id, { name: 'Office', description: 'Late at night.' });
+  const scene = await production.createScene(owner, series.id, episode.id, { sceneNumber: 1, title: 'Office', description: 'Late at night.', locationId: location.id });
   const shot = await production.createShot(owner, series.id, episode.id, scene.id, { shotNumber: 1, description: 'Mara answers.', dialogue: 'The truth always leaves a shadow.', durationSeconds: 4, characterIds: [character.id], visualPrompt: 'Mara in a dim office' });
   return { repository, production, service: new AudioGenerationService(repository), review: new MediaReviewService(repository), series, episode, scene, shot, character };
 }
