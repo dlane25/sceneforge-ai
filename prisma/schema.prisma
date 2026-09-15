@@ -39,11 +39,15 @@ enum ApprovalStatus {
 }
 
 enum GenerationJobStatus {
+  DRAFT
+  AWAITING_APPROVAL
+  APPROVED
   QUEUED
   RUNNING
   SUCCEEDED
   FAILED
   CANCELLED
+  REJECTED
 }
 
 model User {

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { AuthenticatedUser } from '@/lib/auth';
+import { InvalidStateError } from '@/lib/application-errors';
 import type { PersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series';
 import type { CaptionExportMode, EpisodeAssembly, EpisodeExportJob, ExportJobStatus } from '@/types';
@@ -47,12 +48,12 @@ export class EpisodeExportService {
     });
   }
 
-  async approve(user: AuthenticatedUser, seriesId: string, episodeId: string, jobId: string, notes?: string): Promise<EpisodeExportJob> { await this.requireEpisode(user, seriesId, episodeId, 'OWNER'); const job = await this.requireJob(seriesId, episodeId, jobId); if (job.status !== 'awaiting_approval') throw new Error('Export job is not awaiting approval'); const now = this.now(); return this.save(job, { status: 'approved', approvalState: 'approved', approvedBy: user.id, approvalNotes: notes, approvedAt: now }); }
-  async reject(user: AuthenticatedUser, seriesId: string, episodeId: string, jobId: string, notes: string): Promise<EpisodeExportJob> { await this.requireEpisode(user, seriesId, episodeId, 'OWNER'); const job = await this.requireJob(seriesId, episodeId, jobId); if (job.status !== 'awaiting_approval') throw new Error('Export job is not awaiting approval'); return this.save(job, { status: 'rejected', approvalState: 'rejected', approvalNotes: notes, rejectedAt: this.now() }); }
+  async approve(user: AuthenticatedUser, seriesId: string, episodeId: string, jobId: string, notes?: string): Promise<EpisodeExportJob> { await this.requireEpisode(user, seriesId, episodeId, 'OWNER'); const job = await this.requireJob(seriesId, episodeId, jobId); if (job.status !== 'awaiting_approval') throw new InvalidStateError('Export job is not awaiting approval'); const now = this.now(); return this.save(job, { status: 'approved', approvalState: 'approved', approvedBy: user.id, approvalNotes: notes, approvedAt: now }); }
+  async reject(user: AuthenticatedUser, seriesId: string, episodeId: string, jobId: string, notes: string): Promise<EpisodeExportJob> { await this.requireEpisode(user, seriesId, episodeId, 'OWNER'); const job = await this.requireJob(seriesId, episodeId, jobId); if (job.status !== 'awaiting_approval') throw new InvalidStateError('Export job is not awaiting approval'); return this.save(job, { status: 'rejected', approvalState: 'rejected', approvalNotes: notes, rejectedAt: this.now() }); }
 
   async start(user: AuthenticatedUser, seriesId: string, episodeId: string, jobId: string): Promise<EpisodeExportJob> {
     await this.requireEpisode(user, seriesId, episodeId, 'OWNER'); const job = await this.requireJob(seriesId, episodeId, jobId);
-    if (job.status !== 'approved' || job.approvalState !== 'approved') throw new Error('Human approval is required before export execution');
+    if (job.status !== 'approved' || job.approvalState !== 'approved') throw new InvalidStateError('Human approval is required before export execution');
     const started = Date.now();
     try {
       const assembly = await this.assemblies.validate(user, seriesId, episodeId, job.assemblyId);

@@ -5,6 +5,7 @@ import type { PersistenceRepository } from '@/lib/repositories';
 import { EMPIRE_OF_LIES_CONTINUITY_FACTS, EMPIRE_OF_LIES_SERIES, EMPIRE_OF_LIES_STORY_FACTS, createEmpireOfLiesEpisodes } from '@/lib/mock';
 import { MockVideoProvider } from '@/lib/video/mock-provider';
 import type { GenerationJob } from '@/types';
+import { InvalidStateError } from '@/lib/application-errors';
 import type { PipelineRun, PipelineSnapshot, PipelineState } from './types';
 
 let pipelineCounter = 0;
@@ -95,7 +96,7 @@ export class OrchestrationService {
 
   async approve(id: string, note?: string): Promise<PipelineRun> {
     const pipeline = await this.requirePipeline(id);
-    if (pipeline.state !== 'READY_FOR_APPROVAL' || !pipeline.approval) throw new Error('Pipeline is not awaiting approval');
+    if (pipeline.state !== 'READY_FOR_APPROVAL' || !pipeline.approval) throw new InvalidStateError('Pipeline is not awaiting approval');
     pipeline.approval = { ...pipeline.approval, status: 'approved', decisionAt: new Date(), decisionNote: note };
     await this.repository.saveApproval(pipeline.approval);
     update(pipeline, 'APPROVED');
@@ -104,7 +105,7 @@ export class OrchestrationService {
 
   async reject(id: string, note?: string, revision = false): Promise<PipelineRun> {
     const pipeline = await this.requirePipeline(id);
-    if (!pipeline.approval) throw new Error('Pipeline has no approval request');
+    if (!pipeline.approval) throw new InvalidStateError('Pipeline has no approval request');
     pipeline.approval = { ...pipeline.approval, status: revision ? 'revision_requested' : 'rejected', decisionAt: new Date(), decisionNote: note };
     await this.repository.saveApproval(pipeline.approval);
     update(pipeline, revision ? 'DRAFT' : 'REJECTED');
@@ -113,7 +114,7 @@ export class OrchestrationService {
 
   async queueGeneration(id: string): Promise<PipelineRun> {
     const pipeline = await this.requirePipeline(id);
-    if (pipeline.state !== 'APPROVED' || !pipeline.shotPlan) throw new Error('Human approval is required before generation');
+    if (pipeline.state !== 'APPROVED' || !pipeline.shotPlan) throw new InvalidStateError('Human approval is required before generation');
     const provider = new MockVideoProvider();
     const job: GenerationJob = await provider.generateShot({ prompt: pipeline.shotPlan.shots[0]?.generationPrompt || 'Empire of Lies vertical drama shot', duration: pipeline.shotPlan.totalDurationSeconds, aspectRatio: '9:16', style: 'cinematic' });
     pipeline.generationJobId = job.id;

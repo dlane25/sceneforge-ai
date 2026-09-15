@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 import type { AuthenticatedUser } from '@/lib/auth';
+import { InvalidStateError } from '@/lib/application-errors';
 import type { PersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series/service';
 import type { GenerationJob, Shot } from '@/types';
@@ -38,7 +39,7 @@ export class GenerationService {
     const readiness = await this.production.getShotReadiness(user, seriesId, episodeId, sceneId, shotId);
     if (!readiness.ready) throw new Error(`Shot is not generation-ready: ${readiness.blockers.join(' ')}`);
     const active = await this.repository.listGenerationJobs(seriesId, episodeId, sceneId, shotId);
-    if (active.some((job) => ['awaiting_approval', 'approved', 'queued', 'processing'].includes(job.status))) throw new Error('An active generation job already exists for this shot');
+    if (active.some((job) => ['awaiting_approval', 'approved', 'queued', 'processing'].includes(job.status))) throw new InvalidStateError('An active generation job already exists for this shot');
 
     const config = this.configLoader();
     const provider = this.registry.resolve(config.videoProvider, config.providers[config.videoProvider]);
@@ -87,19 +88,19 @@ export class GenerationService {
 
   async approve(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> {
     const job = await this.requireJob(user, ids, jobId, 'OWNER');
-    if (job.status !== 'awaiting_approval') throw new Error('Generation job is not awaiting approval');
+    if (job.status !== 'awaiting_approval') throw new InvalidStateError('Generation job is not awaiting approval');
     return this.save(job, { status: 'approved' });
   }
 
   async reject(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> {
     const job = await this.requireJob(user, ids, jobId, 'OWNER');
-    if (job.status !== 'awaiting_approval') throw new Error('Generation job is not awaiting approval');
+    if (job.status !== 'awaiting_approval') throw new InvalidStateError('Generation job is not awaiting approval');
     return this.save(job, { status: 'rejected' });
   }
 
   async start(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> {
     const job = await this.requireJob(user, ids, jobId, 'OWNER');
-    if (job.status !== 'approved') throw new Error('Human approval is required before generation');
+    if (job.status !== 'approved') throw new InvalidStateError('Human approval is required before generation');
     const started = Date.now();
     try {
       const provider = this.resolveJobProvider(job);

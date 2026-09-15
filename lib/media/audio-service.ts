@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 import type { AuthenticatedUser } from '@/lib/auth';
+import { InvalidStateError } from '@/lib/application-errors';
 import type { PersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series/service';
 import type { Character, GeneratedAsset, GenerationJob, Shot, VoiceProfile } from '@/types';
@@ -54,7 +55,7 @@ export class AudioGenerationService {
     this.assertVoiceGovernance(character.voiceProfile);
 
     const history = await this.repository.listGenerationJobs(seriesId, episodeId, sceneId, shotId);
-    if (history.some((job) => job.generationType === 'audio' && activeStatuses.includes(job.status))) throw new Error('An active audio generation job already exists for this dialogue line');
+    if (history.some((job) => job.generationType === 'audio' && activeStatuses.includes(job.status))) throw new InvalidStateError('An active audio generation job already exists for this dialogue line');
     const config = this.configLoader();
     const provider = this.registry.resolve(config.audioProvider, config.providers[config.audioProvider]);
     if (!provider.capabilities.textToSpeech) throw providerError(ProviderErrorCode.UnsupportedCapability, `Configured provider ${provider.id} does not support text-to-speech`);
@@ -119,12 +120,12 @@ export class AudioGenerationService {
     };
   }
 
-  async approve(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> { const job = await this.requireJob(user, ids, jobId, 'OWNER'); if (job.status !== 'awaiting_approval') throw new Error('Audio job is not awaiting approval'); return this.save(job, { status: 'approved' }); }
-  async reject(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> { const job = await this.requireJob(user, ids, jobId, 'OWNER'); if (job.status !== 'awaiting_approval') throw new Error('Audio job is not awaiting approval'); return this.save(job, { status: 'rejected' }); }
+  async approve(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> { const job = await this.requireJob(user, ids, jobId, 'OWNER'); if (job.status !== 'awaiting_approval') throw new InvalidStateError('Audio job is not awaiting approval'); return this.save(job, { status: 'approved' }); }
+  async reject(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> { const job = await this.requireJob(user, ids, jobId, 'OWNER'); if (job.status !== 'awaiting_approval') throw new InvalidStateError('Audio job is not awaiting approval'); return this.save(job, { status: 'rejected' }); }
 
   async start(user: AuthenticatedUser, ids: string[], jobId: string): Promise<GenerationJob> {
     const job = await this.requireJob(user, ids, jobId, 'OWNER');
-    if (job.status !== 'approved') throw new Error('Human approval is required before speech generation');
+    if (job.status !== 'approved') throw new InvalidStateError('Human approval is required before speech generation');
     const started = Date.now();
     try {
       const provider = this.resolveJobProvider(job);
