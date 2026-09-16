@@ -33,9 +33,12 @@ GOOGLE_CLOUD_PROJECT=
 GOOGLE_CLOUD_LOCATION=us-central1
 VERTEX_VIDEO_MODEL=veo-3.1-generate-001
 VERTEX_OUTPUT_STORAGE_URI=gs://your-bucket/sceneforge/
+MEDIA_PREVIEW_URL_TTL_SECONDS=300
 ```
 
 Credentials are server-only. API routes and client components receive provider status and safe metadata, never API keys, ADC tokens, raw provider payloads, or private reasoning.
+
+Generated GCS URIs remain canonical private storage references. Browser previews use an authenticated, production-scoped server route that validates the configured Vertex bucket and prefix, verifies the object, and redirects to a short-lived signed HTTPS URL. The preview lifetime defaults to five minutes and can be set from 60 to 900 seconds with `MEDIA_PREVIEW_URL_TTL_SECONDS`.
 
 ## Lifecycle and governance
 

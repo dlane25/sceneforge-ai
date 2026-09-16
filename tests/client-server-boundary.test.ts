@@ -17,6 +17,8 @@ const guardedModules = [
   'lib/repositories/runtime.ts',
   'lib/series/runtime.ts',
   'lib/media/runtime.ts',
+  'lib/media/media-preview-service.ts',
+  'lib/media/preview-runtime.ts',
   'lib/assembly/runtime.ts',
   'lib/launch/runtime.ts',
   'lib/health/runtime.ts',
