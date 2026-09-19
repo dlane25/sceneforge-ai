@@ -58,8 +58,8 @@ export class ProductionService {
   async updateStoryFact(user: AuthenticatedUser, seriesId: string, factId: string, input: Partial<StoryFactInput>): Promise<StoryFact> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.updateStoryFact(seriesId, factId, input); }
   async deleteStoryFact(user: AuthenticatedUser, seriesId: string, factId: string): Promise<void> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.deleteStoryFact(seriesId, factId); }
   async listShots(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string): Promise<Shot[]> { await this.requireRole(user, seriesId, 'VIEWER'); return this.repository.listShots(seriesId, episodeId, sceneId); }
-  async createShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, input: ShotInput): Promise<Shot> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.createShot(seriesId, episodeId, sceneId, input); }
-  async updateShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string, input: Partial<ShotInput>): Promise<Shot> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.updateShot(seriesId, episodeId, sceneId, shotId, input); }
+  async createShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, input: ShotInput): Promise<Shot> { await this.requireRole(user, seriesId, 'EDITOR'); await this.requireProductionCharacters(seriesId, input.characterIds); return this.repository.createShot(seriesId, episodeId, sceneId, input); }
+  async updateShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string, input: Partial<ShotInput>): Promise<Shot> { await this.requireRole(user, seriesId, 'EDITOR'); await this.requireProductionCharacters(seriesId, input.characterIds); return this.repository.updateShot(seriesId, episodeId, sceneId, shotId, input); }
   async deleteShot(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<void> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.deleteShot(seriesId, episodeId, sceneId, shotId); }
   async reorderShots(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotIds: string[]): Promise<Shot[]> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.reorderShots(seriesId, episodeId, sceneId, shotIds); }
   async createStoryboard(user: AuthenticatedUser, seriesId: string, episodeId: string, sceneId: string, shotId: string): Promise<Storyboard> { await this.requireRole(user, seriesId, 'EDITOR'); return this.repository.createStoryboard(seriesId, episodeId, sceneId, shotId); }
@@ -109,6 +109,12 @@ export class ProductionService {
     const existing = await this.repository.findUserByEmail(input.email);
     if (existing) return existing;
     return this.repository.upsertUserIdentity({ email: input.email, displayName: input.displayName || input.email, provider: 'invited', providerSubject: input.email.toLowerCase() });
+  }
+
+  private async requireProductionCharacters(seriesId: string, characterIds?: string[]): Promise<void> {
+    if (!characterIds?.length) return;
+    const characters = await Promise.all([...new Set(characterIds)].map((characterId) => this.repository.getCharacter(seriesId, characterId)));
+    if (characters.some((character) => !character)) throw new Error('Every assigned character must belong to the production');
   }
 
   private async preventLastOwner(seriesId: string, memberId: string): Promise<void> {

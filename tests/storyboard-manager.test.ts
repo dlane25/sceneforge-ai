@@ -13,6 +13,15 @@ import {
   type PreparedStoryboard,
   type PreparedStoryboards,
 } from '@/components/series/storyboard-preparation';
+import {
+  buildShotDialoguePatch,
+  initialShotDialogueDraft,
+  replaceSavedShot,
+  saveShotDialogue,
+  ShotDialogueEditor,
+  SHOT_DIALOGUE_MAX_LENGTH,
+  type ShotDialogueCharacter,
+} from '@/components/series/shot-dialogue-editor';
 
 const storyboard: PreparedStoryboard = {
   id: 'storyboard_shot_1',
@@ -110,5 +119,88 @@ describe('storyboard preparation UX', () => {
     expect(source).toContain('loading={Boolean(preparingShots[shot.id])}');
     expect(source).toContain('prepared={Boolean(storyboards[shot.id])}');
     expect(source).toContain('<StoryboardPreparationStatus storyboard={storyboards[shot.id]} />');
+  });
+});
+
+const characters: ShotDialogueCharacter[] = [
+  { id: 'character_1', name: 'Mara' },
+  { id: 'character_2', name: 'Jonah' },
+];
+
+describe('shot dialogue editing UX', () => {
+  it('loads persisted characters into the editor and initializes persisted speaker and dialogue', () => {
+    const shot = { id: 'shot_1', characterIds: ['character_2'], dialogue: '  We leave at dawn.  ' };
+    expect(initialShotDialogueDraft(shot, characters)).toEqual({ characterIds: ['character_2'], dialogue: '  We leave at dawn.  ' });
+
+    const markup = renderToStaticMarkup(createElement(ShotDialogueEditor, {
+      shot,
+      characters,
+      endpoint: '/api/shot_1',
+      onSaved: () => undefined,
+    }));
+    expect(markup).toContain('Mara');
+    expect(markup).toContain('Jonah');
+    expect(markup).toContain('value="character_2" selected=""');
+    expect(markup).toContain('We leave at dawn.');
+    expect(markup).toContain('used as the dialogue speaker');
+  });
+
+  it('sends only the intended trimmed dialogue and selected speaker fields in PATCH', async () => {
+    const patch = buildShotDialoguePatch('  Hold the line.  ', 'character_1', characters);
+    const saved = { id: 'shot_1', ...patch };
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: saved }), { status: 200, headers: { 'content-type': 'application/json' } }));
+
+    await expect(saveShotDialogue('/api/shot_1', patch, request)).resolves.toEqual(saved);
+    expect(request).toHaveBeenCalledWith('/api/shot_1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ dialogue: 'Hold the line.', characterIds: ['character_1'] }),
+    });
+  });
+
+  it('updates the local shot collection with the persisted response for immediate audio-panel input', () => {
+    const current = [
+      { id: 'shot_1', shotNumber: 1, description: 'Wide shot', characterIds: [], dialogue: '' },
+      { id: 'shot_2', shotNumber: 2, description: 'Close shot', characterIds: [], dialogue: '' },
+    ];
+    const updated = replaceSavedShot(current, { id: 'shot_1', characterIds: ['character_1'], dialogue: 'Ready.' });
+    expect(updated[0]).toEqual({ ...current[0], characterIds: ['character_1'], dialogue: 'Ready.' });
+    expect(updated[1]).toBe(current[1]);
+
+    const source = readFileSync(path.join(process.cwd(), 'components/series/storyboard-manager.tsx'), 'utf8');
+    expect(source).toContain('setShots((current) => replaceSavedShot(current, saved))');
+    expect(source).toContain('<AudioCaptionPanel seriesId={seriesId} episodeId={episodeId} sceneId={sceneId} shots={shots} />');
+  });
+
+  it('handles empty values safely and never invents a speaker', () => {
+    expect(buildShotDialoguePatch('   ', '', characters)).toEqual({ dialogue: '', characterIds: [] });
+    expect(initialShotDialogueDraft({ id: 'shot_1', characterIds: [], dialogue: undefined }, characters)).toEqual({ dialogue: '', characterIds: [] });
+  });
+
+  it('rejects stale character IDs instead of newly submitting them', () => {
+    expect(() => buildShotDialoguePatch('Hello.', 'character_deleted', characters)).toThrow('no longer available');
+    expect(initialShotDialogueDraft({ id: 'shot_1', characterIds: ['character_deleted'], dialogue: 'Old line.' }, characters).characterIds).toEqual([]);
+  });
+
+  it('constrains dialogue to the existing 2000-character API limit', () => {
+    expect(buildShotDialoguePatch('x'.repeat(SHOT_DIALOGUE_MAX_LENGTH), 'character_1', characters).dialogue).toHaveLength(2000);
+    expect(() => buildShotDialoguePatch('x'.repeat(SHOT_DIALOGUE_MAX_LENGTH + 1), 'character_1', characters)).toThrow('2000 characters or fewer');
+    const markup = renderToStaticMarkup(createElement(ShotDialogueEditor, {
+      shot: { id: 'shot_1', characterIds: [], dialogue: '' },
+      characters,
+      endpoint: '/api/shot_1',
+      onSaved: () => undefined,
+    }));
+    expect(markup).toContain('maxLength="2000"');
+  });
+
+  it('uses the existing authenticated character API and preserves editor loading state', () => {
+    const source = readFileSync(path.join(process.cwd(), 'components/series/storyboard-manager.tsx'), 'utf8');
+    expect(source).toContain('fetch(`/api/series/${seriesId}/characters`)');
+    expect(source).toContain('Loading production characters');
+    expect(source).toContain('<ShotDialogueEditor');
+    const editorSource = readFileSync(path.join(process.cwd(), 'components/series/shot-dialogue-editor.tsx'), 'utf8');
+    expect(editorSource).toContain('disabled={saving}');
+    expect(editorSource).toContain("saving ? 'Saving…' : 'Save dialogue'");
   });
 });

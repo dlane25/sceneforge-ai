@@ -50,4 +50,20 @@ describe('production data foundation', () => {
     expect((await service.listStoryFacts(owner, series.id))[0].description).toBe('Avery is injured.');
     await expect(repository.getActiveFacts(series.id, 1)).resolves.toHaveLength(0);
   });
+
+  it('rejects stale or cross-production character assignments on shot writes', async () => {
+    const { repository, service, series } = await setup();
+    const other = await service.createSeries(owner, { ...input, title: 'Other Character Production' });
+    const persistedEditor = await repository.findUserByEmail(editor.email);
+    await repository.upsertMembership({ id: 'other-character-editor-membership', userId: persistedEditor!.id, seriesId: other.id, role: 'EDITOR' });
+    const foreignCharacter = await service.createCharacter(editor, other.id, { name: 'Outsider', role: 'minor', age: 40, appearance: 'Unknown', personality: 'Reserved', wardrobe: 'Grey coat', voiceProfile: { tone: 'quiet', pace: 'normal' } });
+    const location = await service.createLocation(editor, series.id, { name: 'Stage', description: 'A production stage.' });
+    const episode = await service.createEpisode(editor, series.id, { episodeNumber: 1, title: 'One', synopsis: 'One.' });
+    const scene = await service.createScene(editor, series.id, episode.id, { sceneNumber: 1, title: 'Opening', description: 'Open.', locationId: location.id });
+    const shot = await service.createShot(editor, series.id, episode.id, scene.id, { shotNumber: 1, description: 'An empty line.', durationSeconds: 4, visualPrompt: 'A stage.' });
+
+    await expect(service.updateShot(editor, series.id, episode.id, scene.id, shot.id, { characterIds: [foreignCharacter.id], dialogue: 'Not allowed.' })).rejects.toThrow('belong to the production');
+    await expect(service.updateShot(editor, series.id, episode.id, scene.id, shot.id, { characterIds: ['character_missing'], dialogue: 'Also not allowed.' })).rejects.toThrow('belong to the production');
+    await expect(service.updateShot(editor, series.id, episode.id, scene.id, shot.id, { characterIds: [], dialogue: '' })).resolves.toMatchObject({ characterIds: [], dialogue: '' });
+  });
 });
