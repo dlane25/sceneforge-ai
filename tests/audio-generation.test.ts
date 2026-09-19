@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AuthenticatedUser } from '@/lib/auth';
 import { AudioGenerationService } from '@/lib/media/audio-service';
+import type { GenerationConfig } from '@/lib/media/config';
 import type { ProviderLogEvent } from '@/lib/media/provider-logging';
+import { ProviderRegistry } from '@/lib/media/providers/registry';
+import type { MediaProvider } from '@/lib/media/providers/types';
 import { MediaReviewService } from '@/lib/media/review-service';
 import { InMemoryPersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series';
@@ -30,6 +33,35 @@ async function complete(service: AudioGenerationService, ids: string[], jobId: s
   let job = await service.start(owner, ids, jobId);
   while (job.status !== 'completed') job = await service.refresh(owner, ids, jobId);
   return job;
+}
+
+function elevenLabsPreparationService(repository: InMemoryPersistenceRepository) {
+  const generateSpeech = vi.fn(async () => { throw new Error('Speech generation must not run during preparation'); });
+  const estimateCost = vi.fn(async () => 0.0123);
+  const unsupported = async () => { throw new Error('Unexpected provider operation'); };
+  const provider: MediaProvider = {
+    id: 'elevenlabs-voice',
+    capabilities: { textToSpeech: true, speechGeneration: true, synchronous: true, costEstimation: true },
+    generateImage: unsupported,
+    generateVideo: unsupported,
+    generateSpeech,
+    extendVideo: unsupported,
+    imageToVideo: unsupported,
+    getStatus: unsupported,
+    cancelJob: unsupported,
+    estimateCost,
+  };
+  const registry = new ProviderRegistry({ 'elevenlabs-voice': () => provider });
+  const config: GenerationConfig = {
+    imageProvider: 'mock', videoProvider: 'mock', audioProvider: 'elevenlabs-voice', geminiModel: 'mock-v1', defaultAudioLanguage: 'en',
+    providers: {
+      mock: { imageModel: 'mock-v1', videoModel: 'mock-v1', audioModel: 'mock-v1' },
+      'gemini-image': {},
+      'vertex-video': {},
+      'elevenlabs-voice': { apiKey: 'unit-test-placeholder', audioModel: 'eleven_multilingual_v2', outputFormat: 'mp3_44100_128' },
+    },
+  };
+  return { service: new AudioGenerationService(repository, { registry, loadConfig: () => config }), generateSpeech, estimateCost };
 }
 
 describe('audio generation lifecycle', () => {
@@ -91,6 +123,40 @@ describe('audio generation lifecycle', () => {
     const { production, service, series, episode, scene, shot, character } = await setup();
     await production.updateCharacter(owner, series.id, character.id, { voiceProfile: { ...character.voiceProfile, reference: { referenceId: 'internal-reference', checksum: 'sha256-test' }, rights: undefined } });
     await expect(service.prepareLine(owner, series.id, episode.id, scene.id, shot.id)).rejects.toThrow('metadata is required');
+  });
+
+  it('prepares an ElevenLabs-compatible profile for approval without speech generation or network work', async () => {
+    const { repository, production, series, episode, scene, shot, character } = await setup();
+    await production.updateCharacter(owner, series.id, character.id, { voiceProfile: { provider: 'elevenlabs-voice', providerVoiceId: 'catalog_voice_test', displayName: 'Mara Catalog Voice', language: 'en', locale: 'en-US', active: true, tone: 'warm', pace: 'normal' } });
+    const { service, generateSpeech, estimateCost } = elevenLabsPreparationService(repository);
+    const prepared = await service.prepareLine(owner, series.id, episode.id, scene.id, shot.id);
+    expect(prepared).toMatchObject({ status: 'awaiting_approval', provider: 'elevenlabs-voice', providerVoiceId: 'catalog_voice_test', characterId: character.id, language: 'en' });
+    expect(estimateCost).toHaveBeenCalledOnce();
+    expect(generateSpeech).not.toHaveBeenCalled();
+  });
+
+  it('keeps provider mismatch and missing provider voice ID blocked', async () => {
+    const mismatch = await setup();
+    const mismatchProvider = elevenLabsPreparationService(mismatch.repository);
+    await expect(mismatchProvider.service.prepareLine(owner, mismatch.series.id, mismatch.episode.id, mismatch.scene.id, mismatch.shot.id)).rejects.toThrow('does not match');
+    expect(mismatchProvider.estimateCost).not.toHaveBeenCalled();
+    expect(mismatchProvider.generateSpeech).not.toHaveBeenCalled();
+
+    const missing = await setup();
+    await missing.production.updateCharacter(owner, missing.series.id, missing.character.id, { voiceProfile: { provider: 'elevenlabs-voice', providerVoiceId: '', displayName: 'Missing Voice', active: true, tone: 'warm', pace: 'normal' } });
+    const missingProvider = elevenLabsPreparationService(missing.repository);
+    await expect(missingProvider.service.prepareLine(owner, missing.series.id, missing.episode.id, missing.scene.id, missing.shot.id)).rejects.toThrow('provider voice ID');
+    expect(missingProvider.estimateCost).not.toHaveBeenCalled();
+    expect(missingProvider.generateSpeech).not.toHaveBeenCalled();
+  });
+
+  it('keeps inactive ElevenLabs voice profiles blocked before provider work', async () => {
+    const context = await setup();
+    await context.production.updateCharacter(owner, context.series.id, context.character.id, { voiceProfile: { provider: 'elevenlabs-voice', providerVoiceId: 'catalog_voice_test', displayName: 'Inactive Voice', active: false, tone: 'warm', pace: 'normal' } });
+    const provider = elevenLabsPreparationService(context.repository);
+    await expect(provider.service.prepareLine(owner, context.series.id, context.episode.id, context.scene.id, context.shot.id)).rejects.toThrow('inactive');
+    expect(provider.estimateCost).not.toHaveBeenCalled();
+    expect(provider.generateSpeech).not.toHaveBeenCalled();
   });
 
   it('emits structured audio lifecycle metadata without dialogue or credentials', async () => {

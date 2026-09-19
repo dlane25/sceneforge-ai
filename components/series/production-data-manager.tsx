@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Save } from 'lucide-react';
 import { buildSceneCreateInput, type SceneSummary } from './scene-create';
+import { CharacterVoiceProfileEditor, replaceSavedCharacter, type VoiceProfileCharacter } from './character-voice-profile-editor';
 
 type RecordItem = {
   id: string;
@@ -15,7 +16,7 @@ type RecordItem = {
 };
 
 export function ProductionDataManager({ seriesId }: { seriesId: string }) {
-  const [characters, setCharacters] = useState<RecordItem[]>([]);
+  const [characters, setCharacters] = useState<VoiceProfileCharacter[]>([]);
   const [locations, setLocations] = useState<RecordItem[]>([]);
   const [episodes, setEpisodes] = useState<RecordItem[]>([]);
   const [facts, setFacts] = useState<RecordItem[]>([]);
@@ -72,7 +73,14 @@ export function ProductionDataManager({ seriesId }: { seriesId: string }) {
   }
 
   return <div className="mt-8 grid gap-6 lg:grid-cols-2">
-    <DataPanel title="Characters" value={characterName} setValue={setCharacterName} placeholder="Character name" action={() => create('characters', { name: characterName, role: 'supporting', age: 30, appearance: 'Production character', personality: 'Defined in the series bible', wardrobe: 'To be designed', voiceProfile: { tone: 'neutral', pace: 'normal' } })} items={characters} primary="name" />
+    <CharacterPanel
+      seriesId={seriesId}
+      value={characterName}
+      setValue={setCharacterName}
+      action={() => create('characters', { name: characterName, role: 'supporting', age: 30, appearance: 'Production character', personality: 'Defined in the series bible', wardrobe: 'To be designed', voiceProfile: { tone: 'neutral', pace: 'normal' } })}
+      characters={characters}
+      onSaved={(saved) => setCharacters((current) => replaceSavedCharacter(current, saved))}
+    />
     <DataPanel title="Locations" value={locationName} setValue={setLocationName} placeholder="Location name" action={() => create('locations', { name: locationName, description: 'Production location' })} items={locations} primary="name" />
     <DataPanel title="Episodes" value={episodeTitle} setValue={setEpisodeTitle} placeholder="Episode title" action={() => create('episodes', { episodeNumber: episodes.length + 1, title: episodeTitle, synopsis: 'Episode synopsis' })} items={episodes} primary="title" />
     <section className="border border-stone-800 bg-stone-900 p-5">
@@ -95,6 +103,15 @@ export function ProductionDataManager({ seriesId }: { seriesId: string }) {
       {notice && <p className="mt-4 text-sm text-amber-300">{notice}</p>}
     </section>
   </div>;
+}
+
+function CharacterPanel({ seriesId, value, setValue, action, characters, onSaved }: { seriesId: string; value: string; setValue: (value: string) => void; action: () => void; characters: VoiceProfileCharacter[]; onSaved: (character: VoiceProfileCharacter) => void }) {
+  return <section className="border border-stone-800 bg-stone-900 p-5 lg:col-span-2">
+    <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Characters</h3><span className="text-xs text-stone-500">{characters.length} records</span></div>
+    <div className="mt-4 flex gap-2"><input value={value} onChange={(event) => setValue(event.target.value)} placeholder="Character name" className="min-w-0 flex-1 border border-stone-700 bg-stone-950 px-3 py-2 text-sm" /><button onClick={action} className="rounded bg-amber-600 p-2" aria-label="Create Characters"><Plus size={16} /></button></div>
+    <p className="mt-2 text-xs text-stone-500">New characters remain provider-neutral until an existing premade/catalog voice is configured explicitly.</p>
+    <div className="mt-4 space-y-4">{characters.map((character) => <article key={character.id} className="border-b border-stone-800 pb-4"><p className="text-sm font-semibold text-stone-200">{character.name}</p><CharacterVoiceProfileEditor seriesId={seriesId} character={character} onSaved={onSaved} /></article>)}{!characters.length && <p className="text-sm text-stone-500">No records yet.</p>}</div>
+  </section>;
 }
 
 function DataPanel({ title, value, setValue, placeholder, action, items, primary }: { title: string; value: string; setValue: (value: string) => void; placeholder: string; action: () => void; items: RecordItem[]; primary: 'name' | 'title' }) {

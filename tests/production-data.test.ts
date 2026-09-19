@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryPersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series';
-import type { AuthenticatedUser } from '@/lib/auth';
+import { AuthorizationError, type AuthenticatedUser } from '@/lib/auth';
 
 const owner: AuthenticatedUser = { id: 'production-data-owner', email: 'data@example.test', displayName: 'Data Owner', provider: 'mock', subject: 'data-owner' };
 const editor: AuthenticatedUser = { id: 'production-data-editor', email: 'data-editor@example.test', displayName: 'Data Editor', provider: 'mock', subject: 'data-editor' };
+const viewer: AuthenticatedUser = { id: 'production-data-viewer', email: 'data-viewer@example.test', displayName: 'Data Viewer', provider: 'mock', subject: 'data-viewer' };
 const input = { title: 'Production Data Test', logline: 'A test production.', genre: 'Drama', targetAudience: 'Adults', visualStyle: 'Cinematic', episodeCount: 10, episodeDurationSeconds: 75 };
 
 async function setup() {
@@ -65,5 +66,27 @@ describe('production data foundation', () => {
     await expect(service.updateShot(editor, series.id, episode.id, scene.id, shot.id, { characterIds: [foreignCharacter.id], dialogue: 'Not allowed.' })).rejects.toThrow('belong to the production');
     await expect(service.updateShot(editor, series.id, episode.id, scene.id, shot.id, { characterIds: ['character_missing'], dialogue: 'Also not allowed.' })).rejects.toThrow('belong to the production');
     await expect(service.updateShot(editor, series.id, episode.id, scene.id, shot.id, { characterIds: [], dialogue: '' })).resolves.toMatchObject({ characterIds: [], dialogue: '' });
+  });
+
+  it('allows OWNER and EDITOR voice updates, rejects VIEWER, and preserves governed optional metadata', async () => {
+    const { repository, service, series } = await setup();
+    const persistedViewer = await repository.upsertUserIdentity({ email: viewer.email, displayName: viewer.displayName, provider: viewer.provider, providerSubject: viewer.subject });
+    await repository.upsertMembership({ id: 'viewer-membership', userId: persistedViewer.id, seriesId: series.id, role: 'VIEWER' });
+    const character = await service.createCharacter(owner, series.id, {
+      name: 'Maya Chen', role: 'protagonist', age: 31, appearance: 'Focused', personality: 'Decisive', wardrobe: 'Navy jacket',
+      voiceProfile: {
+        tone: 'neutral', pace: 'normal', stability: 0.55, similarityBoost: 0.7, speakerBoost: true,
+        reference: { referenceId: 'governed-reference', checksum: 'sha256-reference' },
+        rights: { sourceType: 'licensed', rightsConfirmed: true, consentConfirmed: true, approvalState: 'approved', confirmedAt: new Date('2026-01-01T00:00:00Z') },
+      },
+    });
+
+    const edited = await service.updateCharacter(editor, series.id, character.id, {
+      voiceProfile: { provider: 'elevenlabs-voice', providerVoiceId: 'catalog_voice_test', displayName: 'Maya Catalog Voice', language: 'en', locale: 'en-US', active: true, tone: 'warm', pace: 'slow' },
+    });
+    expect(edited.voiceProfile).toMatchObject({ provider: 'elevenlabs-voice', providerVoiceId: 'catalog_voice_test', displayName: 'Maya Catalog Voice', tone: 'warm', pace: 'slow', stability: 0.55, similarityBoost: 0.7, speakerBoost: true, reference: character.voiceProfile.reference, rights: character.voiceProfile.rights });
+
+    await expect(service.updateCharacter(owner, series.id, character.id, { voiceProfile: { provider: 'elevenlabs-voice', providerVoiceId: 'catalog_voice_test', displayName: 'Maya Catalog Voice', active: false, tone: 'measured', pace: 'normal' } })).resolves.toMatchObject({ voiceProfile: { active: false, tone: 'measured', rights: character.voiceProfile.rights } });
+    await expect(service.updateCharacter(viewer, series.id, character.id, { voiceProfile: { provider: 'elevenlabs-voice', providerVoiceId: 'blocked_voice', displayName: 'Blocked', active: true, tone: 'neutral', pace: 'normal' } })).rejects.toBeInstanceOf(AuthorizationError);
   });
 });
