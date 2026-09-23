@@ -101,4 +101,12 @@ describe('operations, configuration, health, and request hardening', () => {
     expect(formAction).toBe("form-action 'self' https://accounts.google.com");
     expect(production['Content-Security-Policy']).toContain("media-src 'self' data: blob: https:"); expect(production['Strict-Transport-Security']).toContain('max-age=31536000'); expect(development['Strict-Transport-Security']).toBeUndefined();
   });
+
+  it('validates the Google TTS ADC/storage production contract without requiring ElevenLabs', () => {
+    const google = { NODE_ENV: 'production', DATABASE_URL: 'postgresql://secret', AUTH_MODE: 'authjs', AUTH_SECRET: 'auth-secret', AUTH_TRUST_HOST: 'true', AUTH_GOOGLE_ID: 'client', AUTH_GOOGLE_SECRET: 'oauth-secret', APP_BASE_URL: 'https://sceneforge.example', AUTH_URL: 'https://sceneforge.example', IMAGE_PROVIDER: 'gemini-image', VIDEO_PROVIDER: 'vertex-video', AUDIO_PROVIDER: 'google-cloud-tts', GEMINI_API_KEY: 'gemini-secret', GEMINI_IMAGE_MODEL: 'image-model', GOOGLE_CLOUD_PROJECT: 'project', GOOGLE_CLOUD_LOCATION: 'us-central1', VERTEX_VIDEO_MODEL: 'video-model', MEDIA_STORAGE_URI: 'gs://bucket/sceneforge', VERTEX_OUTPUT_STORAGE_URI: 'gs://bucket/sceneforge/video', GOOGLE_TTS_MODEL: 'chirp-3-hd', GOOGLE_TTS_OUTPUT_FORMAT: 'MP3', GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS: '30', GOOGLE_TTS_PRICING_VERSION: 'test-v1', EXPORT_ENGINE: 'ffmpeg-local', FFMPEG_PATH: 'ffmpeg', EXPORT_MEDIA_ROOT: path.resolve('test-fixtures', 'media'), EXPORT_OUTPUT_ROOT: path.resolve('test-fixtures', 'output') };
+    expect(assessProductionConfiguration(google, { pathExists: () => true }).ready).toBe(true);
+    const rejected = assessProductionConfiguration({ ...google, GOOGLE_APPLICATION_CREDENTIALS: 'private-key-file.json' }, { pathExists: () => true });
+    expect(rejected.ready).toBe(false);
+    expect(JSON.stringify(rejected)).not.toContain('private-key-file.json');
+  });
 });

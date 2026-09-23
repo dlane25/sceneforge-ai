@@ -5,18 +5,14 @@ import { GoogleAuth } from 'google-auth-library';
 import type { AuthenticatedUser } from '@/lib/auth';
 import type { PersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series/service';
+import { assertWithinGcsRoot, loadAuthorizedMediaRoot, parseGcsUri, safeGcsEncode, type GcsLocation } from '@/lib/storage/gcs';
+
+export { parseGcsUri } from '@/lib/storage/gcs';
+export type { GcsLocation } from '@/lib/storage/gcs';
 
 export const DEFAULT_MEDIA_PREVIEW_TTL_SECONDS = 300;
 const MIN_MEDIA_PREVIEW_TTL_SECONDS = 60;
 const MAX_MEDIA_PREVIEW_TTL_SECONDS = 900;
-const GCS_BUCKET_PATTERN = /^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$/;
-const GCS_OBJECT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,1023}$/;
-
-export interface GcsLocation {
-  bucket: string;
-  object: string;
-}
-
 export interface MediaPreviewConfig {
   root: GcsLocation;
   expiresInSeconds: number;
@@ -39,7 +35,7 @@ export interface GoogleSigningDependencies {
 }
 
 function safeEncode(value: string): string {
-  return encodeURIComponent(value).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+  return safeGcsEncode(value);
 }
 
 function encodedObjectPath(location: GcsLocation): string {
@@ -73,21 +69,8 @@ function defaultGoogleSigningDependencies(): GoogleSigningDependencies {
   };
 }
 
-export function parseGcsUri(value: string): GcsLocation {
-  if (!value.startsWith('gs://') || /[\\?#\u0000-\u001F\u007F]/.test(value)) throw new Error('Generated media storage URI is invalid');
-  const separator = value.indexOf('/', 5);
-  if (separator < 0) throw new Error('Generated media storage URI is missing an object');
-  const bucket = value.slice(5, separator);
-  const object = value.slice(separator + 1);
-  if (!GCS_BUCKET_PATTERN.test(bucket) || bucket.includes('..') || bucket.includes('.-') || bucket.includes('-.') || /^\d+\.\d+\.\d+\.\d+$/.test(bucket)) throw new Error('Generated media storage bucket is invalid');
-  if (!GCS_OBJECT_PATTERN.test(object) || object.split('/').some((segment) => !segment || segment === '.' || segment === '..')) throw new Error('Generated media storage object is invalid');
-  return { bucket, object };
-}
-
 export function loadMediaPreviewConfig(env: Record<string, string | undefined> = process.env): MediaPreviewConfig {
-  const configuredRoot = env.VERTEX_OUTPUT_STORAGE_URI || env.GOOGLE_CLOUD_VIDEO_OUTPUT_URI;
-  if (!configuredRoot) throw new Error('Generated media preview storage is not configured');
-  const root = parseGcsUri(configuredRoot.replace(/\/+$/, ''));
+  const root = loadAuthorizedMediaRoot(env);
   const rawTtl = env.MEDIA_PREVIEW_URL_TTL_SECONDS;
   const expiresInSeconds = rawTtl ? Number(rawTtl) : DEFAULT_MEDIA_PREVIEW_TTL_SECONDS;
   if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < MIN_MEDIA_PREVIEW_TTL_SECONDS || expiresInSeconds > MAX_MEDIA_PREVIEW_TTL_SECONDS) throw new Error('Generated media preview expiration is invalid');
@@ -95,7 +78,8 @@ export function loadMediaPreviewConfig(env: Record<string, string | undefined> =
 }
 
 export function assertWithinConfiguredRoot(location: GcsLocation, root: GcsLocation): void {
-  if (location.bucket !== root.bucket || !location.object.startsWith(`${root.object}/`)) throw new Error('Generated media storage location is not authorized');
+  assertWithinGcsRoot(location, root);
+  if (location.object === root.object) throw new Error('Generated media storage location is not authorized');
 }
 
 export class GoogleCloudMediaSigner implements MediaObjectSigner {

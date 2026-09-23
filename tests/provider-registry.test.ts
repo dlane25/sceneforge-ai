@@ -4,14 +4,16 @@ import { MockMediaProvider, ProviderRegistry } from '@/lib/media/providers';
 import { GeminiImageProvider } from '@/lib/media/adapters/gemini-image-provider';
 import { VertexAIVideoProvider } from '@/lib/media/adapters/vertex-ai-video-provider';
 import { ElevenLabsVoiceProvider } from '@/lib/media/adapters/elevenlabs-voice-provider';
+import { GoogleCloudTtsProvider } from '@/lib/media/adapters/google-cloud-tts-provider';
 
 const imageConfig = { apiKey: 'test-key', imageModel: 'gemini-3.1-flash-image' };
 const videoConfig = { projectId: 'test-project', location: 'us-central1', outputStorageUri: 'gs://test-output/video/', videoModel: 'veo-3.1-generate-001' };
 const audioConfig = { apiKey: 'test-key', audioModel: 'eleven_multilingual_v2', outputFormat: 'mp3_44100_128' };
+const googleAudioConfig = { projectId: 'test-project', outputStorageUri: 'gs://test-output/sceneforge', audioModel: 'chirp-3-hd', outputFormat: 'MP3', pricePerMillionCharacters: '30', pricingVersion: 'test-v1' };
 
 describe('provider registry', () => {
   it('lists stable provider IDs in deterministic order', () => {
-    expect(new ProviderRegistry().listAvailable().map((provider) => provider.id)).toEqual(['mock', 'gemini-image', 'vertex-video', 'elevenlabs-voice']);
+    expect(new ProviderRegistry().listAvailable().map((provider) => provider.id)).toEqual(['mock', 'gemini-image', 'vertex-video', 'elevenlabs-voice', 'google-cloud-tts']);
   });
 
   it('resolves and caches the explicit mock provider', () => {
@@ -41,11 +43,16 @@ describe('provider registry', () => {
     expect(new ProviderRegistry().getProviderInfo('elevenlabs-voice')?.capabilities).toMatchObject({ textToSpeech: true, speechGeneration: true, voiceCloning: false, captionGeneration: false, synchronous: true, cancellation: false });
   });
 
+  it('reports Google Cloud TTS as synchronous Chirp speech without cloning', () => {
+    expect(new ProviderRegistry().getProviderInfo('google-cloud-tts')?.capabilities).toMatchObject({ textToSpeech: true, speechGeneration: true, voiceCloning: false, synchronous: true, supportedModels: ['chirp-3-hd'] });
+  });
+
   it('validates complete Gemini and Vertex configurations', () => {
     const registry = new ProviderRegistry();
     expect(registry.validateConfig('gemini-image', imageConfig)).toEqual({ valid: true, errors: [], warnings: [] });
     expect(registry.validateConfig('vertex-video', videoConfig)).toEqual({ valid: true, errors: [], warnings: [] });
     expect(registry.validateConfig('elevenlabs-voice', audioConfig)).toEqual({ valid: true, errors: [], warnings: [] });
+    expect(registry.validateConfig('google-cloud-tts', googleAudioConfig)).toEqual({ valid: true, errors: [], warnings: [] });
   });
 
   it('rejects missing credentials, storage, and models', () => {
@@ -53,6 +60,7 @@ describe('provider registry', () => {
     expect(registry.validateConfig('gemini-image', {}).errors).toEqual(expect.arrayContaining([expect.stringContaining('apiKey'), expect.stringContaining('imageModel')]));
     expect(registry.validateConfig('vertex-video', { projectId: 'p', location: 'l' }).errors).toEqual(expect.arrayContaining([expect.stringContaining('outputStorageUri'), expect.stringContaining('videoModel')]));
     expect(registry.validateConfig('elevenlabs-voice', {}).errors).toEqual(expect.arrayContaining([expect.stringContaining('apiKey'), expect.stringContaining('audioModel')]));
+    expect(registry.validateConfig('google-cloud-tts', {}).errors).toEqual(expect.arrayContaining([expect.stringContaining('projectId'), expect.stringContaining('outputStorageUri'), expect.stringContaining('pricingVersion')]));
   });
 
   it('rejects unsupported models and unsafe endpoint overrides', () => {
@@ -60,6 +68,8 @@ describe('provider registry', () => {
     expect(registry.validateConfig('gemini-image', { ...imageConfig, imageModel: 'text-model' }).valid).toBe(false);
     expect(registry.validateConfig('vertex-video', { ...videoConfig, endpoint: 'http://localhost:9999' }).valid).toBe(false);
     expect(registry.validateConfig('elevenlabs-voice', { ...audioConfig, endpoint: 'https://elevenlabs.io.attacker.test' }).valid).toBe(false);
+    expect(registry.validateConfig('google-cloud-tts', { ...googleAudioConfig, endpoint: 'https://evil.example' }).valid).toBe(false);
+    expect(registry.validateConfig('google-cloud-tts', { ...googleAudioConfig, outputFormat: 'LINEAR16' }).valid).toBe(false);
   });
 
   it('resolves real adapters without executing their transports', () => {
@@ -67,6 +77,7 @@ describe('provider registry', () => {
     expect(registry.resolve('gemini-image', imageConfig)).toBeInstanceOf(GeminiImageProvider);
     expect(registry.resolve('vertex-video', videoConfig)).toBeInstanceOf(VertexAIVideoProvider);
     expect(registry.resolve('elevenlabs-voice', audioConfig)).toBeInstanceOf(ElevenLabsVoiceProvider);
+    expect(registry.resolve('google-cloud-tts', googleAudioConfig)).toBeInstanceOf(GoogleCloudTtsProvider);
   });
 
   it('rejects unknown providers deterministically', () => {
@@ -104,6 +115,17 @@ describe('server-only provider configuration', () => {
     expect(config.defaultAudioLanguage).toBe('en-US');
   });
 
+  it('loads production Google TTS without requiring an ElevenLabs secret and rejects key-file credentials', () => {
+    const environment = {
+      NODE_ENV: 'production', IMAGE_PROVIDER: 'gemini-image', VIDEO_PROVIDER: 'vertex-video', AUDIO_PROVIDER: 'google-cloud-tts',
+      GEMINI_API_KEY: 'test-key', GEMINI_IMAGE_MODEL: 'gemini-3.1-flash-image', GOOGLE_CLOUD_PROJECT: 'project', GOOGLE_CLOUD_LOCATION: 'us-central1',
+      VERTEX_OUTPUT_STORAGE_URI: 'gs://output/sceneforge/video', MEDIA_STORAGE_URI: 'gs://output/sceneforge', VERTEX_VIDEO_MODEL: 'veo-3.1-generate-001',
+      GOOGLE_TTS_MODEL: 'chirp-3-hd', GOOGLE_TTS_OUTPUT_FORMAT: 'MP3', GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS: '30', GOOGLE_TTS_PRICING_VERSION: 'test-v1',
+    };
+    expect(loadGenerationConfig(environment).providers['google-cloud-tts']).toMatchObject({ projectId: 'project', outputStorageUri: 'gs://output/sceneforge', audioModel: 'chirp-3-hd', outputFormat: 'MP3' });
+    expect(() => loadGenerationConfig({ ...environment, GOOGLE_APPLICATION_CREDENTIALS: '/forbidden/key.json' })).toThrow('Application Default Credentials');
+  });
+
   it('rejects any production mock selection and missing production selection', () => {
     expect(() => loadGenerationConfig({ NODE_ENV: 'production' })).toThrow();
     expect(() => loadGenerationConfig({ NODE_ENV: 'production', IMAGE_PROVIDER: 'mock', VIDEO_PROVIDER: 'vertex-video', AUDIO_PROVIDER: 'elevenlabs-voice' })).toThrow('Mock');
@@ -125,6 +147,7 @@ describe('server-only provider configuration', () => {
     expect(validateProviderConfig({ providerId: 'gemini-image', config: imageConfig, strict: true })).toHaveLength(0);
     expect(validateProviderConfig({ providerId: 'vertex-video', config: videoConfig, strict: true })).toHaveLength(0);
     expect(validateProviderConfig({ providerId: 'elevenlabs-voice', config: audioConfig, strict: true })).toHaveLength(0);
+    expect(validateProviderConfig({ providerId: 'google-cloud-tts', config: googleAudioConfig, strict: true })).toHaveLength(0);
   });
 });
 

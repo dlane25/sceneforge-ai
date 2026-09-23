@@ -34,6 +34,24 @@ function productionEnvironment(): NodeJS.ProcessEnv {
 }
 
 describe('production startup FFmpeg probe', () => {
+  it('accepts provider-conditional Google TTS configuration without an ElevenLabs secret', () => {
+    const environment = productionEnvironment();
+    environment.AUDIO_PROVIDER = 'google-cloud-tts';
+    delete environment.ELEVENLABS_API_KEY;
+    delete environment.ELEVENLABS_MODEL_ID;
+    environment.MEDIA_STORAGE_URI = 'gs://private-bucket/path';
+    environment.GOOGLE_TTS_MODEL = 'chirp-3-hd';
+    environment.GOOGLE_TTS_OUTPUT_FORMAT = 'MP3';
+    environment.GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS = '30';
+    environment.GOOGLE_TTS_PRICING_VERSION = 'test-v1';
+    expect(runStartupCheck(environment, { pathExists: () => true, spawn: () => ({ status: 0 }), logger: { log: vi.fn(), error: vi.fn() } })).toBe(true);
+    environment.GOOGLE_APPLICATION_CREDENTIALS = 'forbidden-key-file.json';
+    const output: string[] = [];
+    expect(runStartupCheck(environment, { pathExists: () => true, spawn: () => ({ status: 0 }), logger: { log: vi.fn(), error: (message: string) => output.push(message) } })).toBe(false);
+    expect(output).toContain('- GOOGLE_APPLICATION_CREDENTIALS: must be unset; use runtime Application Default Credentials');
+    expect(output.join('\n')).not.toContain('forbidden-key-file.json');
+  });
+
   it('accepts a successful executable probe with a Cloud Run-safe timeout', () => {
     const spawn = vi.fn(() => ({ status: 0 }));
 

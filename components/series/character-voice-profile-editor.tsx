@@ -14,7 +14,7 @@ export const VOICE_PROFILE_LIMITS = {
 
 export type VoiceProfileCharacter = { id: string; name: string; voiceProfile: VoiceProfile };
 export type VoiceProfileDraft = {
-  provider: '' | 'elevenlabs-voice';
+  provider: '' | 'elevenlabs-voice' | 'google-cloud-tts';
   providerVoiceId: string;
   displayName: string;
   language: string;
@@ -29,10 +29,10 @@ export type VoiceProfilePatch = {
 
 export function initialVoiceProfileDraft(character: VoiceProfileCharacter): VoiceProfileDraft {
   const profile = character.voiceProfile;
-  const configuredForElevenLabs = profile.provider === 'elevenlabs-voice';
+  const configuredProvider = profile.provider === 'elevenlabs-voice' || profile.provider === 'google-cloud-tts' ? profile.provider : '';
   return {
-    provider: configuredForElevenLabs ? 'elevenlabs-voice' : '',
-    providerVoiceId: configuredForElevenLabs ? profile.providerVoiceId || '' : '',
+    provider: configuredProvider,
+    providerVoiceId: configuredProvider ? profile.providerVoiceId || '' : '',
     displayName: profile.displayName || character.name,
     language: profile.language || '',
     locale: profile.locale || '',
@@ -50,17 +50,23 @@ function checkedLength(value: string, label: string, maximum: number, minimum = 
 }
 
 export function buildVoiceProfilePatch(draft: VoiceProfileDraft, characterName: string): VoiceProfilePatch {
-  if (draft.provider !== 'elevenlabs-voice') throw new Error('Select ElevenLabs premade/catalog voice as the provider.');
+  if (draft.provider !== 'elevenlabs-voice' && draft.provider !== 'google-cloud-tts') throw new Error('Select a supported production voice provider.');
   const providerVoiceId = checkedLength(draft.providerVoiceId, 'Voice ID', VOICE_PROFILE_LIMITS.providerVoiceId, 1);
   const displayName = checkedLength(draft.displayName, 'Display name', VOICE_PROFILE_LIMITS.displayName) || characterName;
   const tone = checkedLength(draft.tone, 'Tone', VOICE_PROFILE_LIMITS.tone, 1);
   const language = checkedLength(draft.language, 'Language', VOICE_PROFILE_LIMITS.language);
   if (language && language.length < 2) throw new Error('Language must be at least 2 characters.');
   const locale = checkedLength(draft.locale, 'Locale', VOICE_PROFILE_LIMITS.locale);
+  if (draft.provider === 'google-cloud-tts') {
+    if (!language) throw new Error('Language code is required for Google Cloud TTS.');
+    const match = /^([a-z]{2,3}-[A-Z]{2})-Chirp3-HD-[A-Za-z0-9]+$/.exec(providerVoiceId);
+    if (!match) throw new Error('Voice name must be a complete Chirp 3 HD voice name.');
+    if (match[1] !== language) throw new Error('Chirp voice locale must match the language code.');
+  }
   if (!['slow', 'normal', 'fast'].includes(draft.pace)) throw new Error('Pace must be slow, normal, or fast.');
   return {
     voiceProfile: {
-      provider: 'elevenlabs-voice',
+      provider: draft.provider,
       providerVoiceId,
       displayName,
       tone,
@@ -154,18 +160,19 @@ export function CharacterVoiceProfileEditor({
 
   return <section className="mt-3 border border-stone-800 bg-stone-950 p-4" aria-label={`${character.name} voice profile`}>
     <div className="flex flex-wrap items-start justify-between gap-2">
-      <div><p className="text-sm font-semibold text-amber-200">Voice profile</p><p className="mt-1 text-xs text-stone-500">Configure an existing ElevenLabs premade/catalog voice. This does not contact ElevenLabs or generate speech.</p></div>
+      <div><p className="text-sm font-semibold text-amber-200">Voice profile</p><p className="mt-1 text-xs text-stone-500">Configure an existing provider-catalog voice. Saving does not contact a speech provider or generate audio.</p></div>
       <span className={`text-xs ${active ? 'text-emerald-400' : 'text-amber-300'}`}>{active ? 'Active' : 'Inactive'}</span>
     </div>
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       <label className="text-xs text-stone-400">Provider
         <select value={provider} onChange={(event) => { setProvider(event.target.value as VoiceProfileDraft['provider']); clearStatus(); }} disabled={saving} className="mt-1 block w-full border border-stone-700 bg-stone-900 px-3 py-2 text-sm disabled:opacity-50">
           <option value="">Not configured</option>
+          <option value="google-cloud-tts">Google Cloud TTS — Chirp 3 HD (Recommended)</option>
           <option value="elevenlabs-voice">ElevenLabs premade/catalog voice</option>
         </select>
       </label>
-      <label className="text-xs text-stone-400">Existing ElevenLabs premade/catalog voice ID
-        <input value={providerVoiceId} onChange={(event) => { setProviderVoiceId(event.target.value); clearStatus(); }} maxLength={VOICE_PROFILE_LIMITS.providerVoiceId} disabled={saving} autoComplete="off" placeholder="Enter an existing provider voice ID" className="mt-1 block w-full border border-stone-700 bg-stone-900 px-3 py-2 text-sm disabled:opacity-50" />
+      <label className="text-xs text-stone-400">{provider === 'google-cloud-tts' ? 'Explicit Chirp 3 HD voice name' : 'Existing ElevenLabs premade/catalog voice ID'}
+        <input value={providerVoiceId} onChange={(event) => { setProviderVoiceId(event.target.value); clearStatus(); }} maxLength={VOICE_PROFILE_LIMITS.providerVoiceId} disabled={saving} autoComplete="off" placeholder={provider === 'google-cloud-tts' ? 'Language-Chirp3-HD-VoiceName' : 'Enter an existing provider voice ID'} className="mt-1 block w-full border border-stone-700 bg-stone-900 px-3 py-2 text-sm disabled:opacity-50" />
       </label>
       <label className="text-xs text-stone-400">Display name
         <input value={displayName} onChange={(event) => { setDisplayName(event.target.value); clearStatus(); }} maxLength={VOICE_PROFILE_LIMITS.displayName} disabled={saving} className="mt-1 block w-full border border-stone-700 bg-stone-900 px-3 py-2 text-sm disabled:opacity-50" />
@@ -178,8 +185,8 @@ export function CharacterVoiceProfileEditor({
           <option value="slow">Slow</option><option value="normal">Normal</option><option value="fast">Fast</option>
         </select>
       </label>
-      <label className="text-xs text-stone-400">Language
-        <input value={language} onChange={(event) => { setLanguage(event.target.value); clearStatus(); }} maxLength={VOICE_PROFILE_LIMITS.language} disabled={saving} placeholder="en" className="mt-1 block w-full border border-stone-700 bg-stone-900 px-3 py-2 text-sm disabled:opacity-50" />
+      <label className="text-xs text-stone-400">{provider === 'google-cloud-tts' ? 'Language code (must match voice)' : 'Language'}
+        <input value={language} onChange={(event) => { setLanguage(event.target.value); clearStatus(); }} maxLength={VOICE_PROFILE_LIMITS.language} disabled={saving} placeholder={provider === 'google-cloud-tts' ? 'language-REGION' : 'en'} className="mt-1 block w-full border border-stone-700 bg-stone-900 px-3 py-2 text-sm disabled:opacity-50" />
       </label>
       <label className="text-xs text-stone-400">Locale
         <input value={locale} onChange={(event) => { setLocale(event.target.value); clearStatus(); }} maxLength={VOICE_PROFILE_LIMITS.locale} disabled={saving} placeholder="en-US" className="mt-1 block w-full border border-stone-700 bg-stone-900 px-3 py-2 text-sm disabled:opacity-50" />

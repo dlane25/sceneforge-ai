@@ -5,6 +5,8 @@ import type { GenerationConfig } from '@/lib/media/config';
 import type { ProviderLogEvent } from '@/lib/media/provider-logging';
 import { ProviderRegistry } from '@/lib/media/providers/registry';
 import type { MediaProvider } from '@/lib/media/providers/types';
+import { GoogleCloudTtsProvider } from '@/lib/media/adapters/google-cloud-tts-provider';
+import type { SpeechTransport } from '@/lib/media/providers/transport';
 import { MediaReviewService } from '@/lib/media/review-service';
 import { InMemoryPersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series';
@@ -59,9 +61,30 @@ function elevenLabsPreparationService(repository: InMemoryPersistenceRepository)
       'gemini-image': {},
       'vertex-video': {},
       'elevenlabs-voice': { apiKey: 'unit-test-placeholder', audioModel: 'eleven_multilingual_v2', outputFormat: 'mp3_44100_128' },
+      'google-cloud-tts': { projectId: 'test-project', outputStorageUri: 'gs://test-bucket/sceneforge', audioModel: 'chirp-3-hd', outputFormat: 'MP3', pricePerMillionCharacters: '30', pricingVersion: 'test-v1' },
     },
   };
   return { service: new AudioGenerationService(repository, { registry, loadConfig: () => config }), generateSpeech, estimateCost };
+}
+
+function googleTtsService(repository: InMemoryPersistenceRepository) {
+  const submitSpeechGeneration = vi.fn(async (request: Parameters<SpeechTransport['submitSpeechGeneration']>[0]) => {
+    void request;
+    return {
+      jobId: 'fake-google-tts-job', status: 'succeeded' as const,
+      output: { uri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_shot_1_1/v1.mp3', storageUri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_shot_1_1/v1.mp3', mimeType: 'audio/mpeg', width: 0, height: 0, codec: 'mp3', metadata: { storage: 'private-gcs' } },
+      metadata: { synchronous: true },
+    };
+  });
+  const transport: SpeechTransport = { submitSpeechGeneration, getSpeechGenerationStatus: vi.fn() };
+  const providerConfig = { projectId: 'test-project', outputStorageUri: 'gs://test-bucket/sceneforge', audioModel: 'chirp-3-hd', outputFormat: 'MP3', pricePerMillionCharacters: '30', pricingVersion: 'test-v1' };
+  const provider = new GoogleCloudTtsProvider(providerConfig, transport);
+  const registry = new ProviderRegistry({ 'google-cloud-tts': () => provider });
+  const config: GenerationConfig = {
+    imageProvider: 'mock', videoProvider: 'mock', audioProvider: 'google-cloud-tts', geminiModel: 'mock-v1', defaultAudioLanguage: 'en-US',
+    providers: { mock: {}, 'gemini-image': {}, 'vertex-video': {}, 'elevenlabs-voice': {}, 'google-cloud-tts': providerConfig },
+  };
+  return { service: new AudioGenerationService(repository, { registry, loadConfig: () => config }), submitSpeechGeneration };
 }
 
 describe('audio generation lifecycle', () => {
@@ -157,6 +180,25 @@ describe('audio generation lifecycle', () => {
     await expect(provider.service.prepareLine(owner, context.series.id, context.episode.id, context.scene.id, context.shot.id)).rejects.toThrow('inactive');
     expect(provider.estimateCost).not.toHaveBeenCalled();
     expect(provider.generateSpeech).not.toHaveBeenCalled();
+  });
+
+  it('preserves approval while completing Google TTS into canonical private GCS with deterministic cost', async () => {
+    const context = await setup();
+    await context.production.updateCharacter(owner, context.series.id, context.character.id, { voiceProfile: { provider: 'google-cloud-tts', providerVoiceId: 'en-US-Chirp3-HD-TestVoice', displayName: 'Mara Chirp Voice', language: 'en-US', locale: 'en-US', active: true, tone: 'warm', pace: 'normal' } });
+    const { service, submitSpeechGeneration } = googleTtsService(context.repository);
+    const ids: [string, string, string, string] = [context.series.id, context.episode.id, context.scene.id, context.shot.id];
+    const prepared = await service.prepareLine(owner, ...ids);
+    expect(prepared).toMatchObject({ status: 'awaiting_approval', provider: 'google-cloud-tts', providerModel: 'chirp-3-hd', language: 'en-US', generationParameters: { outputFormat: 'MP3', pace: 'normal', costAccounting: { unitCount: 33, unitPricePerMillion: 30, pricingVersion: 'test-v1' } } });
+    expect(submitSpeechGeneration).not.toHaveBeenCalled();
+    await expect(service.start(owner, ids, prepared.id)).rejects.toThrow('approval');
+    await service.approve(owner, ids, prepared.id);
+    const completed = await service.start(owner, ids, prepared.id);
+    expect(completed).toMatchObject({ status: 'completed', actualCost: prepared.estimatedCost, completionMetadata: { costAccounting: { billingSource: 'calculated-configured-rate' } } });
+    expect(submitSpeechGeneration).toHaveBeenCalledOnce();
+    expect(submitSpeechGeneration.mock.calls[0][0]).toMatchObject({ operationId: prepared.id, outputFormat: 'MP3' });
+    expect(submitSpeechGeneration.mock.calls[0][0]).not.toHaveProperty('stability');
+    const [asset] = await context.repository.listGeneratedAssets(...ids);
+    expect(asset).toMatchObject({ uri: expect.stringMatching(/^gs:\/\/test-bucket\/sceneforge\//), storageUri: expect.stringMatching(/^gs:\/\/test-bucket\/sceneforge\//), reviewStatus: 'pending' });
   });
 
   it('emits structured audio lifecycle metadata without dialogue or credentials', async () => {

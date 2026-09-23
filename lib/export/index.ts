@@ -2,6 +2,7 @@ export { EXPORT_PRESETS, getExportPreset } from './presets';
 export { ExportEngineRegistry } from './registry';
 export { MockExportEngine, stableExportSerialize } from './mock-engine';
 export { FfmpegExportEngine, LocalExportWorkspace, SpawnProcessExecutor, buildFfmpegArgs } from './ffmpeg-engine';
+export { GcsExportMediaMaterializer } from './gcs-media-materializer';
 export type { ExportProcessExecutor, ExportWorkspace, FfmpegCommandPlan, ProcessResult } from './ffmpeg-engine';
 export type { ExportEngine, ExportEngineId, ExportEngineOutput, ExportEngineResult, ExportRenderClip, ExportRenderRequest } from './engine-types';
 export { exportError, normalizeExportError, sanitizeExportMessage, ExportOperationError } from './errors';

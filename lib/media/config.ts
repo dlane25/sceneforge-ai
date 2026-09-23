@@ -57,6 +57,15 @@ export function loadGenerationConfig(env: Environment = process.env): Generation
       outputFormat: env.ELEVENLABS_OUTPUT_FORMAT || 'mp3_44100_128',
       endpoint: env.ELEVENLABS_API_ENDPOINT,
     },
+    'google-cloud-tts': {
+      projectId: env.GOOGLE_CLOUD_PROJECT,
+      outputStorageUri: env.MEDIA_STORAGE_URI || env.VERTEX_OUTPUT_STORAGE_URI || env.GOOGLE_CLOUD_VIDEO_OUTPUT_URI,
+      audioModel: env.GOOGLE_TTS_MODEL || 'chirp-3-hd',
+      outputFormat: env.GOOGLE_TTS_OUTPUT_FORMAT || 'MP3',
+      endpoint: env.GOOGLE_TTS_API_ENDPOINT,
+      pricePerMillionCharacters: env.GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS || (env.NODE_ENV === 'test' ? '30' : undefined),
+      pricingVersion: env.GOOGLE_TTS_PRICING_VERSION || (env.NODE_ENV === 'test' ? 'test-pricing-v1' : undefined),
+    },
   };
   if (strict) {
     const errors: string[] = [];
@@ -73,6 +82,15 @@ export function loadGenerationConfig(env: Environment = process.env): Generation
     if (audioProvider === 'elevenlabs-voice') {
       if (!providers['elevenlabs-voice'].apiKey) errors.push('ELEVENLABS_API_KEY is required for the configured audio provider');
       if (!providers['elevenlabs-voice'].audioModel) errors.push('ELEVENLABS_MODEL_ID is required for the configured audio provider');
+    }
+    if (audioProvider === 'google-cloud-tts') {
+      if (!providers['google-cloud-tts'].projectId) errors.push('GOOGLE_CLOUD_PROJECT is required for the configured audio provider');
+      if (!env.MEDIA_STORAGE_URI) errors.push('MEDIA_STORAGE_URI is required for the configured audio provider');
+      if (!providers['google-cloud-tts'].audioModel) errors.push('GOOGLE_TTS_MODEL is required for the configured audio provider');
+      if (providers['google-cloud-tts'].outputFormat !== 'MP3') errors.push('GOOGLE_TTS_OUTPUT_FORMAT must be MP3');
+      if (!providers['google-cloud-tts'].pricePerMillionCharacters) errors.push('GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS is required for the configured audio provider');
+      if (!providers['google-cloud-tts'].pricingVersion) errors.push('GOOGLE_TTS_PRICING_VERSION is required for the configured audio provider');
+      if (env.GOOGLE_APPLICATION_CREDENTIALS) errors.push('GOOGLE_APPLICATION_CREDENTIALS is not allowed; use runtime Application Default Credentials');
     }
     if (errors.length) throw new Error(`Provider configuration is invalid: ${errors.join('; ')}`);
   }
@@ -102,6 +120,14 @@ export function validateProviderConfig(config: MediaProviderConfig): string[] {
   if (config.providerId === 'elevenlabs-voice') {
     if (!config.config.apiKey) errors.push('ElevenLabs API key is required');
     if (!config.config.audioModel) errors.push('ElevenLabs model is required');
+  }
+  if (config.providerId === 'google-cloud-tts') {
+    if (!config.config.projectId) errors.push('Google Cloud project is required');
+    if (!config.config.outputStorageUri) errors.push('Google Cloud media storage URI is required');
+    if (config.config.audioModel !== 'chirp-3-hd') errors.push('Google Cloud TTS model must be chirp-3-hd');
+    if (config.config.outputFormat !== 'MP3') errors.push('Google Cloud TTS output format must be MP3');
+    if (!config.config.pricePerMillionCharacters) errors.push('Google Cloud TTS character pricing is required');
+    if (!config.config.pricingVersion) errors.push('Google Cloud TTS pricing version is required');
   }
   return errors;
 }

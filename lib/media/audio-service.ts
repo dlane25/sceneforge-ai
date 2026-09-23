@@ -65,23 +65,25 @@ export class AudioGenerationService {
     const providerConfig = config.providers[config.audioProvider];
     const model = providerConfig.audioModel || provider.capabilities.supportedModels?.[0] || 'mock-v1';
     const language = character.voiceProfile.language || config.defaultAudioLanguage;
-    const request = this.requestFor(shot.dialogue, character.voiceProfile, voiceId, model, language, providerConfig.outputFormat);
-    const estimatedCost = await provider.estimateCost(request);
+    const submittedText = shot.dialogue.trim();
+    const request = this.requestFor(submittedText, character.voiceProfile, voiceId, model, language, providerConfig.outputFormat);
+    const costAccounting = provider.estimateCostDetails ? await provider.estimateCostDetails(request) : undefined;
+    const estimatedCost = costAccounting?.amount ?? await provider.estimateCost(request);
     const now = this.now();
     const generationParameters = {
       characterId: character.id, voiceDisplayName: character.voiceProfile.displayName || character.name, providerVoiceId: voiceId,
       language, locale: character.voiceProfile.locale, pace: character.voiceProfile.pace, tone: character.voiceProfile.tone,
       stability: character.voiceProfile.stability, similarityBoost: character.voiceProfile.similarityBoost,
       styleExaggeration: character.voiceProfile.styleExaggeration, speakerBoost: character.voiceProfile.speakerBoost,
-      outputFormat: request.outputFormat, model,
+      outputFormat: request.outputFormat, model, ...(costAccounting ? { costAccounting } : {}),
     };
-    const inputHash = createHash('sha256').update(JSON.stringify({ text: shot.dialogue, generationParameters })).digest('hex');
+    const inputHash = createHash('sha256').update(JSON.stringify({ text: submittedText, generationParameters })).digest('hex');
     const audioHistory = history.filter((job) => job.generationType === 'audio');
     return this.repository.createGenerationJob({
       id: `audio_${shotId}_${audioHistory.length + 1}`, seriesId, episodeId, sceneId, shotId,
       provider: provider.id, providerModel: model, providerVoiceId: voiceId, characterId: character.id, language, locale: character.voiceProfile.locale,
       generationType: 'audio', status: 'awaiting_approval', promptVersion: '1.0', inputHash,
-      promptSnapshot: shot.dialogue, generationParameters, durationSeconds: this.estimateDuration(shot.dialogue, character.voiceProfile.pace), aspectRatio: '1:1',
+      promptSnapshot: submittedText, generationParameters, durationSeconds: this.estimateDuration(submittedText, character.voiceProfile.pace), aspectRatio: '1:1',
       estimatedCost, actualCost: 0, retryCount: 0, outputAssetIds: [], createdAt: now, updatedAt: now,
     });
   }
@@ -134,6 +136,7 @@ export class AudioGenerationService {
         stability: this.numberParameter(job, 'stability'), similarityBoost: this.numberParameter(job, 'similarityBoost'), styleExaggeration: this.numberParameter(job, 'styleExaggeration'),
         speakerBoost: typeof job.generationParameters?.speakerBoost === 'boolean' ? job.generationParameters.speakerBoost : undefined,
         outputFormat: typeof job.generationParameters?.outputFormat === 'string' ? job.generationParameters.outputFormat : undefined,
+        operationId: job.id,
       });
       this.logger.write({ operation: 'submit', provider: job.provider, model: result.model, voiceId: job.providerVoiceId, generationJobId: job.id, providerJobId: result.jobId, status: result.status, durationMs: Date.now() - started });
       const submittedAt = result.submittedAt || this.now();

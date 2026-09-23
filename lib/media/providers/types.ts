@@ -1,4 +1,4 @@
-export const PROVIDER_IDS = ['mock', 'gemini-image', 'vertex-video', 'elevenlabs-voice'] as const;
+export const PROVIDER_IDS = ['mock', 'gemini-image', 'vertex-video', 'elevenlabs-voice', 'google-cloud-tts'] as const;
 
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 export type ProviderMediaType = 'image' | 'video' | 'audio';
@@ -38,6 +38,8 @@ export interface ProviderConfig {
   videoModel?: string;
   audioModel?: string;
   outputFormat?: string;
+  pricePerMillionCharacters?: string;
+  pricingVersion?: string;
   [key: string]: string | undefined;
 }
 
@@ -97,6 +99,17 @@ export interface ProviderGenerationRequest {
   styleExaggeration?: number;
   speakerBoost?: boolean;
   outputFormat?: string;
+  operationId?: string;
+}
+
+export interface ProviderCostEstimate {
+  amount: number;
+  currency: 'USD';
+  unit: 'character';
+  unitCount: number;
+  unitPricePerMillion: number;
+  pricingVersion: string;
+  source: 'configured-rate';
 }
 
 export interface ProviderOutput {
@@ -153,6 +166,7 @@ export interface MediaProvider {
   getStatus(jobId: string): Promise<ProviderJobStatus>;
   cancelJob(jobId: string): Promise<ProviderJobStatus>;
   estimateCost(request: ProviderGenerationRequest): Promise<number>;
+  estimateCostDetails?(request: ProviderGenerationRequest): Promise<ProviderCostEstimate>;
 }
 
 export interface IProviderRegistry {

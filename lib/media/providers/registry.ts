@@ -1,6 +1,7 @@
 import { GeminiImageProvider } from '../adapters/gemini-image-provider';
 import { VertexAIVideoProvider } from '../adapters/vertex-ai-video-provider';
 import { ElevenLabsVoiceProvider } from '../adapters/elevenlabs-voice-provider';
+import { GoogleCloudTtsProvider } from '../adapters/google-cloud-tts-provider';
 import { providerError } from './errors';
 import { MockMediaProvider } from './mock-provider';
 import {
@@ -57,6 +58,14 @@ const PROVIDERS: ReadonlyMap<ProviderId, ProviderInfo> = new Map([
       supportedModels: ['eleven_multilingual_v2', 'eleven_flash_v2_5', 'eleven_turbo_v2_5'],
     },
   }],
+  ['google-cloud-tts', {
+    id: 'google-cloud-tts', name: 'Google Cloud TTS — Chirp 3 HD', description: 'Synchronous Chirp 3 HD speech generation with private Cloud Storage output', configRequired: ['projectId', 'outputStorageUri', 'audioModel', 'outputFormat', 'pricePerMillionCharacters', 'pricingVersion'],
+    capabilities: {
+      imageGeneration: false, videoGeneration: false, textToSpeech: true, speechGeneration: true, voiceCloning: false,
+      soundEffectsGeneration: false, captionGeneration: false, synchronous: true, asyncWithPolling: false,
+      cancellation: false, costEstimation: true, requestValidation: true, supportedModels: ['chirp-3-hd'],
+    },
+  }],
 ]);
 
 export class ProviderRegistry implements IProviderRegistry {
@@ -69,6 +78,7 @@ export class ProviderRegistry implements IProviderRegistry {
       'gemini-image': (config) => new GeminiImageProvider(config.apiKey, undefined, config.imageModel, config.endpoint),
       'vertex-video': (config) => new VertexAIVideoProvider(config.projectId, config.location, config.outputStorageUri, undefined, config.videoModel, config.endpoint),
       'elevenlabs-voice': (config) => new ElevenLabsVoiceProvider(config.apiKey, undefined, config.audioModel, config.endpoint),
+      'google-cloud-tts': (config) => new GoogleCloudTtsProvider(config),
       ...factories,
     };
   }
@@ -93,12 +103,16 @@ export class ProviderRegistry implements IProviderRegistry {
     if (!info) return { valid: false, errors: [`Unknown provider: ${providerId}`], warnings: [] };
     const errors = info.configRequired.filter((key) => !config[key]?.trim()).map((key) => `Missing required config: ${String(key)}`);
     const warnings: string[] = [];
-    const model = providerId === 'gemini-image' ? config.imageModel : providerId === 'vertex-video' ? config.videoModel : providerId === 'elevenlabs-voice' ? config.audioModel : undefined;
+    const model = providerId === 'gemini-image' ? config.imageModel : providerId === 'vertex-video' ? config.videoModel : providerId === 'elevenlabs-voice' || providerId === 'google-cloud-tts' ? config.audioModel : undefined;
     if (model && !info.capabilities.supportedModels?.includes(model)) errors.push(`Unsupported model for ${providerId}`);
     if (providerId !== 'elevenlabs-voice' && config.endpoint && !isHttpsHost(config.endpoint, 'googleapis.com')) errors.push('Provider endpoint must be an HTTPS googleapis.com URL');
     if (providerId === 'vertex-video' && config.outputStorageUri && !config.outputStorageUri.startsWith('gs://')) errors.push('Vertex output storage URI must use gs://');
     if (providerId === 'elevenlabs-voice' && config.outputFormat && !['mp3_44100_128', 'mp3_44100_192', 'pcm_44100'].includes(config.outputFormat)) errors.push('ElevenLabs output format is unsupported');
     if (providerId === 'elevenlabs-voice' && config.endpoint && !isHttpsHost(config.endpoint, 'elevenlabs.io')) errors.push('ElevenLabs endpoint must be an HTTPS elevenlabs.io URL');
+    if (providerId === 'google-cloud-tts' && config.outputFormat !== 'MP3') errors.push('Google Cloud TTS output format must be MP3');
+    if (providerId === 'google-cloud-tts' && config.outputStorageUri && !config.outputStorageUri.startsWith('gs://')) errors.push('Google Cloud TTS media storage URI must use gs://');
+    if (providerId === 'google-cloud-tts' && config.endpoint && !isHttpsHost(config.endpoint, 'googleapis.com')) errors.push('Provider endpoint must be an HTTPS googleapis.com URL');
+    if (providerId === 'google-cloud-tts' && (!Number.isFinite(Number(config.pricePerMillionCharacters)) || Number(config.pricePerMillionCharacters) < 0)) errors.push('Google Cloud TTS character pricing must be a non-negative number');
     return { valid: errors.length === 0, errors, warnings };
   }
 

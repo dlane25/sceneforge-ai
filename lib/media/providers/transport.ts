@@ -57,6 +57,7 @@ export interface SpeechTransport {
     styleExaggeration?: number;
     speakerBoost?: boolean;
     outputFormat: string;
+    operationId?: string;
   }): Promise<TransportSubmission>;
   getSpeechGenerationStatus(jobId: string): Promise<TransportStatus>;
 }

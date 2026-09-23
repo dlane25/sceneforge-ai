@@ -49,7 +49,7 @@ const voiceRightsSchema = z.object({
 });
 const voiceProfileSchema = z.object({
   tone: z.string().trim().min(1).max(120), accent: z.string().trim().max(120).optional(), pace: z.enum(['slow', 'normal', 'fast']), pitch: z.string().trim().max(120).optional(),
-  characterId: z.string().trim().max(200).optional(), displayName: z.string().trim().max(200).optional(), provider: z.enum(['mock', 'elevenlabs-voice']).optional(), providerVoiceId: z.string().trim().max(300).optional(),
+  characterId: z.string().trim().max(200).optional(), displayName: z.string().trim().max(200).optional(), provider: z.enum(['mock', 'elevenlabs-voice', 'google-cloud-tts']).optional(), providerVoiceId: z.string().trim().max(300).optional(),
   language: z.string().trim().min(2).max(50).optional(), locale: z.string().trim().max(80).optional(), speakingStyle: z.string().trim().max(200).optional(),
   styleDescriptors: z.array(z.string().trim().max(120)).max(20).optional(), ageDescriptor: z.string().trim().max(120).optional(), voiceDescriptors: z.array(z.string().trim().max(120)).max(20).optional(),
   stability: z.number().min(0).max(1).optional(), similarityBoost: z.number().min(0).max(1).optional(), styleExaggeration: z.number().min(0).max(1).optional(), speakerBoost: z.boolean().optional(),

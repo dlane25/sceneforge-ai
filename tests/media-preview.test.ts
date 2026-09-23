@@ -58,6 +58,7 @@ describe('private generated media preview', () => {
     expect(() => assertWithinConfiguredRoot({ ...mediaLocation, bucket: 'other-private-media' }, root)).toThrow('not authorized');
     expect(() => assertWithinConfiguredRoot({ ...mediaLocation, object: 'other/sample_0.mp4' }, root)).toThrow('not authorized');
     expect(() => assertWithinConfiguredRoot({ ...mediaLocation, object: 'sceneforge-escape/sample_0.mp4' }, root)).toThrow('not authorized');
+    expect(() => assertWithinConfiguredRoot(root, root)).toThrow('not authorized');
   });
 
   it('uses a five-minute default with bounded configurable expiration', () => {
@@ -136,5 +137,12 @@ describe('private generated media preview', () => {
     const source = readFileSync('components/series/media-review-panel.tsx', 'utf8');
     expect(source).toContain('/preview');
     expect(source).not.toMatch(/href=\{asset\.(?:storageUri|uri)\}/);
+  });
+
+  it('routes private generated audio through the same authenticated preview endpoint', () => {
+    const source = readFileSync('components/series/audio-caption-panel.tsx', 'utf8');
+    expect(source).toContain('/preview`');
+    expect(source).toContain("startsWith('gs://')");
+    expect(source).not.toContain('src={asset.uri}');
   });
 });

@@ -72,6 +72,14 @@ describe('character voice profile editor', () => {
     expect(draft).toMatchObject({ provider: '', providerVoiceId: '', displayName: 'New Character', tone: 'neutral', pace: 'normal' });
   });
 
+  it('initializes and validates an explicitly saved Google Chirp profile without auto-configuring it', () => {
+    const google = { ...character, voiceProfile: { ...character.voiceProfile, provider: 'google-cloud-tts' as const, providerVoiceId: 'en-US-Chirp3-HD-TestVoice', language: 'en-US' } };
+    expect(initialVoiceProfileDraft(google)).toMatchObject({ provider: 'google-cloud-tts', providerVoiceId: 'en-US-Chirp3-HD-TestVoice', language: 'en-US' });
+    expect(buildVoiceProfilePatch(validDraft({ provider: 'google-cloud-tts', providerVoiceId: 'en-US-Chirp3-HD-TestVoice', language: 'en-US', locale: 'en-US' }), character.name)).toMatchObject({ voiceProfile: { provider: 'google-cloud-tts', providerVoiceId: 'en-US-Chirp3-HD-TestVoice', language: 'en-US' } });
+    expect(() => buildVoiceProfilePatch(validDraft({ provider: 'google-cloud-tts', providerVoiceId: 'en-US-Chirp3-HD-TestVoice', language: 'fr-FR' }), character.name)).toThrow('must match');
+    expect(() => buildVoiceProfilePatch(validDraft({ provider: 'google-cloud-tts', providerVoiceId: 'catalog-id', language: 'en-US' }), character.name)).toThrow('complete Chirp');
+  });
+
   it('builds the exact valid PATCH payload from trimmed editor-owned fields', () => {
     const patch = buildVoiceProfilePatch(validDraft(), character.name);
     expect(patch).toEqual({
@@ -94,7 +102,7 @@ describe('character voice profile editor', () => {
 
   it('rejects a blank voice ID and invalid field values', () => {
     expect(() => buildVoiceProfilePatch(validDraft({ providerVoiceId: '   ' }), character.name)).toThrow('Voice ID');
-    expect(() => buildVoiceProfilePatch(validDraft({ provider: '' }), character.name)).toThrow('Select ElevenLabs');
+    expect(() => buildVoiceProfilePatch(validDraft({ provider: '' }), character.name)).toThrow('supported production');
     expect(() => buildVoiceProfilePatch(validDraft({ displayName: 'x'.repeat(VOICE_PROFILE_LIMITS.displayName + 1) }), character.name)).toThrow('Display name');
     expect(() => buildVoiceProfilePatch(validDraft({ providerVoiceId: 'x'.repeat(VOICE_PROFILE_LIMITS.providerVoiceId + 1) }), character.name)).toThrow('Voice ID');
     expect(() => buildVoiceProfilePatch(validDraft({ language: 'e' }), character.name)).toThrow('Language');
@@ -136,6 +144,7 @@ describe('character voice profile editor', () => {
     expect(editorSource).toContain('aria-busy={saving}');
     expect(editorSource).toContain("saving ? 'Saving…' : 'Save voice profile'");
     expect(editorSource).not.toMatch(/ELEVENLABS_API_KEY|NEXT_PUBLIC/);
+    expect(editorSource).toContain('Google Cloud TTS — Chirp 3 HD (Recommended)');
     const managerSource = readFileSync(path.join(process.cwd(), 'components/series/production-data-manager.tsx'), 'utf8');
     expect(managerSource).toContain('<CharacterVoiceProfileEditor');
     expect(managerSource).toContain('setCharacters((current) => replaceSavedCharacter(current, saved))');

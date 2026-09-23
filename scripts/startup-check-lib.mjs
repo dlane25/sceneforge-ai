@@ -38,13 +38,22 @@ export function startupFailures(environment = process.env, options = {}) {
   const need = (key) => { if (!environment[key]?.trim()) failures.push(`${key}: missing`); };
 
   if (environment.NODE_ENV !== 'production') failures.push('NODE_ENV: must be production');
-  for (const key of ['DATABASE_URL', 'AUTH_SECRET', 'APP_BASE_URL', 'AUTH_URL', 'GEMINI_API_KEY', 'GEMINI_IMAGE_MODEL', 'GOOGLE_CLOUD_PROJECT', 'GOOGLE_CLOUD_LOCATION', 'VERTEX_VIDEO_MODEL', 'VERTEX_OUTPUT_STORAGE_URI', 'ELEVENLABS_API_KEY', 'ELEVENLABS_MODEL_ID', 'FFMPEG_PATH', 'EXPORT_MEDIA_ROOT', 'EXPORT_OUTPUT_ROOT']) need(key);
+  for (const key of ['DATABASE_URL', 'AUTH_SECRET', 'APP_BASE_URL', 'AUTH_URL', 'GEMINI_API_KEY', 'GEMINI_IMAGE_MODEL', 'GOOGLE_CLOUD_PROJECT', 'GOOGLE_CLOUD_LOCATION', 'VERTEX_VIDEO_MODEL', 'VERTEX_OUTPUT_STORAGE_URI', 'FFMPEG_PATH', 'EXPORT_MEDIA_ROOT', 'EXPORT_OUTPUT_ROOT']) need(key);
   if (environment.AUTH_MODE !== 'authjs') failures.push('AUTH_MODE: must be authjs');
   if (environment.AUTH_TRUST_HOST !== 'true') failures.push('AUTH_TRUST_HOST: must be explicitly true behind the trusted proxy');
   if (!((environment.AUTH_GOOGLE_ID && environment.AUTH_GOOGLE_SECRET) || (environment.AUTH_GITHUB_ID && environment.AUTH_GITHUB_SECRET))) failures.push('AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET or AUTH_GITHUB_ID/AUTH_GITHUB_SECRET: complete provider pair required');
   if (environment.IMAGE_PROVIDER !== 'gemini-image') failures.push('IMAGE_PROVIDER: must be gemini-image');
   if (environment.VIDEO_PROVIDER !== 'vertex-video') failures.push('VIDEO_PROVIDER: must be vertex-video');
-  if (environment.AUDIO_PROVIDER !== 'elevenlabs-voice') failures.push('AUDIO_PROVIDER: must be elevenlabs-voice');
+  if (!['google-cloud-tts', 'elevenlabs-voice'].includes(environment.AUDIO_PROVIDER)) failures.push('AUDIO_PROVIDER: must be google-cloud-tts or elevenlabs-voice');
+  if (environment.AUDIO_PROVIDER === 'elevenlabs-voice') for (const key of ['ELEVENLABS_API_KEY', 'ELEVENLABS_MODEL_ID']) need(key);
+  if (environment.AUDIO_PROVIDER === 'google-cloud-tts') {
+    for (const key of ['MEDIA_STORAGE_URI', 'GOOGLE_TTS_MODEL', 'GOOGLE_TTS_OUTPUT_FORMAT', 'GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS', 'GOOGLE_TTS_PRICING_VERSION']) need(key);
+    if (environment.GOOGLE_TTS_MODEL && environment.GOOGLE_TTS_MODEL !== 'chirp-3-hd') failures.push('GOOGLE_TTS_MODEL: must be chirp-3-hd');
+    if (environment.GOOGLE_TTS_OUTPUT_FORMAT && environment.GOOGLE_TTS_OUTPUT_FORMAT !== 'MP3') failures.push('GOOGLE_TTS_OUTPUT_FORMAT: must be MP3');
+    const price = Number(environment.GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS);
+    if (environment.GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS && (!Number.isFinite(price) || price < 0)) failures.push('GOOGLE_TTS_PRICE_PER_MILLION_CHARACTERS: must be a non-negative number');
+  }
+  if (environment.GOOGLE_APPLICATION_CREDENTIALS?.trim()) failures.push('GOOGLE_APPLICATION_CREDENTIALS: must be unset; use runtime Application Default Credentials');
   if (environment.EXPORT_ENGINE !== 'ffmpeg-local') failures.push('EXPORT_ENGINE: must be ffmpeg-local');
   try { if (new URL(environment.APP_BASE_URL || '').protocol !== 'https:') failures.push('APP_BASE_URL: must be HTTPS'); } catch { failures.push('APP_BASE_URL: must be a valid HTTPS URL'); }
   try { if (new URL(environment.AUTH_URL || '').protocol !== 'https:') failures.push('AUTH_URL: must be HTTPS'); } catch { failures.push('AUTH_URL: must be a valid HTTPS URL'); }

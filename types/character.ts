@@ -28,7 +28,7 @@ export interface VoiceProfile {
   pitch?: string;
   characterId?: string;
   displayName?: string;
-  provider?: 'mock' | 'elevenlabs-voice';
+  provider?: 'mock' | 'elevenlabs-voice' | 'google-cloud-tts';
   providerVoiceId?: string;
   language?: string;
   locale?: string;

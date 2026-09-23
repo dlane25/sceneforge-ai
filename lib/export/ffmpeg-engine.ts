@@ -7,6 +7,7 @@ import path from 'node:path';
 import type { ExportEngine, ExportEngineResult, ExportRenderRequest } from './engine-types';
 import { exportError, normalizeExportError } from './errors';
 import { resolveManagedMediaSource, safeArtifactName, validateMediaSource } from './source-safety';
+import type { ExportMediaMaterializer, MaterializedExportRequest } from './gcs-media-materializer';
 
 export interface ProcessResult { exitCode: number; stderr?: string }
 export interface ExportProcessExecutor { run(executable: string, args: string[]): Promise<ProcessResult> }
@@ -84,26 +85,34 @@ export class FfmpegExportEngine implements ExportEngine {
   readonly id = 'ffmpeg-local' as const;
   readonly capabilities = { asynchronous: false, cancellation: false, captionBurnIn: true, captionSidecar: true };
   private readonly results = new Map<string, ExportEngineResult>();
-  constructor(private readonly mediaRoot: string, private readonly executor: ExportProcessExecutor, private readonly workspace: ExportWorkspace, private readonly executable = 'ffmpeg') {}
+  constructor(private readonly mediaRoot: string, private readonly executor: ExportProcessExecutor, private readonly workspace: ExportWorkspace, private readonly executable = 'ffmpeg', private readonly materializer?: ExportMediaMaterializer) {}
 
   async render(request: ExportRenderRequest): Promise<ExportEngineResult> {
     const jobId = `ffmpeg-${request.exportJobId}`;
+    let materialized: MaterializedExportRequest | undefined;
     try {
-      const clips = request.clips.map((clip) => {
+      materialized = this.materializer ? await this.materializer.materialize(request) : { request, cleanup: async () => undefined };
+      const renderRequest = materialized.request;
+      const clips = renderRequest.clips.map((clip) => {
         validateMediaSource(clip.videoUri, false); if (clip.audioUri) validateMediaSource(clip.audioUri, false);
         return { ...clip, videoSource: resolveManagedMediaSource(clip.videoUri, this.mediaRoot), audioSource: clip.audioUri ? resolveManagedMediaSource(clip.audioUri, this.mediaRoot) : undefined };
       });
-      const outputPath = await this.workspace.outputPath(request.exportJobId);
-      const captionPath = request.captionMode === 'burn-in' && request.captionContent && request.captionFormat ? await this.workspace.writeCaption(request.exportJobId, request.captionFormat, request.captionContent) : undefined;
-      if (request.captionMode === 'burn-in' && !captionPath) throw exportError('validation_failed', 'Burn-in captions require approved caption content');
-      if (request.captionMode.startsWith('sidecar') && request.captionContent && request.captionFormat) await this.workspace.writeCaption(request.exportJobId, request.captionFormat, request.captionContent);
-      const args = buildFfmpegArgs({ clips: clips.map((clip) => ({ videoSource: clip.videoSource, audioSource: clip.audioSource, startMs: clip.startMs, durationMs: clip.durationMs, trimInMs: clip.trimInMs, volume: clip.volume, muted: clip.muted })), durationMs: request.durationMs, width: request.preset.width, height: request.preset.height, frameRate: request.preset.frameRate, audioSampleRate: request.preset.audioSampleRate, captionPath, outputPath });
+      const outputPath = await this.workspace.outputPath(renderRequest.exportJobId);
+      const captionPath = renderRequest.captionMode === 'burn-in' && renderRequest.captionContent && renderRequest.captionFormat ? await this.workspace.writeCaption(renderRequest.exportJobId, renderRequest.captionFormat, renderRequest.captionContent) : undefined;
+      if (renderRequest.captionMode === 'burn-in' && !captionPath) throw exportError('validation_failed', 'Burn-in captions require approved caption content');
+      if (renderRequest.captionMode.startsWith('sidecar') && renderRequest.captionContent && renderRequest.captionFormat) await this.workspace.writeCaption(renderRequest.exportJobId, renderRequest.captionFormat, renderRequest.captionContent);
+      const args = buildFfmpegArgs({ clips: clips.map((clip) => ({ videoSource: clip.videoSource, audioSource: clip.audioSource, startMs: clip.startMs, durationMs: clip.durationMs, trimInMs: clip.trimInMs, volume: clip.volume, muted: clip.muted })), durationMs: renderRequest.durationMs, width: renderRequest.preset.width, height: renderRequest.preset.height, frameRate: renderRequest.preset.frameRate, audioSampleRate: renderRequest.preset.audioSampleRate, captionPath, outputPath });
       const process = await this.executor.run(this.executable, args);
       if (process.exitCode !== 0) throw exportError('processing_failed', 'FFmpeg rendering failed', true);
-      const output = await this.workspace.complete(outputPath, request.exportJobId, request.durationMs, request.captionMode);
+      const output = await this.workspace.complete(outputPath, renderRequest.exportJobId, renderRequest.durationMs, renderRequest.captionMode);
+      await materialized.cleanup();
+      materialized = undefined;
       const result: ExportEngineResult = { jobId, status: 'succeeded', progress: 100, output, metadata: { argumentCount: args.length, synchronous: true } };
       this.results.set(jobId, result); return structuredClone(result);
     } catch (cause) {
+      if (materialized) {
+        try { await materialized.cleanup(); } catch { /* return only the normalized export failure */ }
+      }
       const error = normalizeExportError(cause);
       const result: ExportEngineResult = { jobId, status: 'failed', progress: 0, error };
       this.results.set(jobId, result); return structuredClone(result);
