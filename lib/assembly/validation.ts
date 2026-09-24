@@ -1,8 +1,8 @@
 import type { AssemblyIssueCode, AssemblyValidationIssue, CaptionTrack, EpisodeAssembly, GeneratedAsset } from '@/types';
 import { EXPORT_PRESETS } from '@/lib/export/presets';
-import { validateMediaSource } from '@/lib/export/source-safety';
+import { validateGeneratedAssetSource, type GeneratedMediaSourcePolicy } from '@/lib/export/source-safety';
 
-export interface AssemblyValidationContext { assets: Map<string, GeneratedAsset>; captionTrack?: CaptionTrack }
+export interface AssemblyValidationContext { assets: Map<string, GeneratedAsset>; captionTrack?: CaptionTrack; sourcePolicy?: GeneratedMediaSourcePolicy }
 
 export function validateAssemblyTimeline(assembly: EpisodeAssembly, context: AssemblyValidationContext): AssemblyValidationIssue[] {
   const issues: AssemblyValidationIssue[] = [];
@@ -60,5 +60,5 @@ function validateAsset(
   if (asset.reviewStatus === 'rejected') add('REJECTED_ASSET', 'error', 'Rejected assets cannot be assembled.', item, assetId);
   else if (asset.reviewStatus !== 'approved') add('REJECTED_ASSET', 'error', 'Only approved assets can be assembled.', item, assetId);
   if (!asset.durationSeconds || asset.durationSeconds <= 0) add(durationCode, 'error', `${expectedType} asset requires a positive duration.`, item, assetId);
-  try { validateMediaSource(asset.storageUri || asset.uri, true); } catch { add('UNSAFE_SOURCE', 'error', 'Selected asset uses an unsupported or unsafe media source.', item, assetId); }
+  try { validateGeneratedAssetSource(asset, context.sourcePolicy || { allowMock: true, gcsMaterializationEnabled: false }); } catch { add('UNSAFE_SOURCE', 'error', 'Selected asset uses an unsupported or unsafe media source.', item, assetId); }
 }

@@ -10,14 +10,25 @@ import { getExportPreset } from '@/lib/export/presets';
 import { stableExportSerialize } from '@/lib/export/mock-engine';
 import { consoleExportLogger, silentExportLogger, type ExportLogger } from '@/lib/export/logging';
 import { validateAssemblyTimeline } from './validation';
+import { loadExportConfig } from '@/lib/export/config';
+import { generatedMediaSourcePolicy, type GeneratedMediaSourcePolicy } from '@/lib/export/source-safety';
 
-interface AssemblyServiceOptions { now?: () => Date; logger?: ExportLogger }
+interface AssemblyServiceOptions { now?: () => Date; logger?: ExportLogger; loadSourcePolicy?: () => GeneratedMediaSourcePolicy }
+
+function audioDurationMs(asset?: GeneratedAsset): number | undefined {
+  if (!asset) return undefined;
+  const persisted = asset.durationSeconds && asset.durationSeconds > 0 ? Math.round(asset.durationSeconds * 1000) : undefined;
+  const measured = asset.generationParameters?.mediaDurationSource === 'mp3-frame-scan';
+  if (asset.provider === 'google-cloud-tts' && asset.codec === 'mp3' && asset.mimeType === 'audio/mpeg' && !measured && asset.fileSize && asset.fileSize > 0 && asset.bitrate && asset.bitrate > 0) return Math.round((asset.fileSize * 8 * 1000) / asset.bitrate);
+  return persisted;
+}
 
 export class EpisodeAssemblyService {
   private readonly production: ProductionService;
   private readonly now: () => Date;
   private readonly logger: ExportLogger;
-  constructor(private readonly repository: PersistenceRepository, options: AssemblyServiceOptions = {}) { this.production = new ProductionService(repository); this.now = options.now || (() => new Date()); this.logger = options.logger || (process.env.NODE_ENV === 'test' ? silentExportLogger : consoleExportLogger); }
+  private readonly loadSourcePolicy: () => GeneratedMediaSourcePolicy;
+  constructor(private readonly repository: PersistenceRepository, options: AssemblyServiceOptions = {}) { this.production = new ProductionService(repository); this.now = options.now || (() => new Date()); this.logger = options.logger || (process.env.NODE_ENV === 'test' ? silentExportLogger : consoleExportLogger); this.loadSourcePolicy = options.loadSourcePolicy || (() => generatedMediaSourcePolicy(loadExportConfig())); }
 
   async list(user: AuthenticatedUser, seriesId: string, episodeId: string): Promise<EpisodeAssembly[]> { await this.requireEpisode(user, seriesId, episodeId, 'VIEWER'); return this.repository.listEpisodeAssemblies(seriesId, episodeId); }
   async get(user: AuthenticatedUser, seriesId: string, episodeId: string, assemblyId: string): Promise<EpisodeAssembly> { await this.requireEpisode(user, seriesId, episodeId, 'VIEWER'); return this.requireAssembly(seriesId, episodeId, assemblyId); }
@@ -41,7 +52,7 @@ export class EpisodeAssemblyService {
         items.push({
           id: `${assemblyId}_item_${items.length + 1}`, assemblyId, sequence: items.length + 1, sceneId: scene.id, shotId: shot.id,
           videoAssetId: video.asset?.id, audioAssetId: audio.asset?.id, videoSelectionReason: video.reason, audioSelectionReason: audio.reason,
-          startMs: cursor, endMs: cursor + durationMs, sourceVideoDurationMs, sourceAudioDurationMs: audio.asset?.durationSeconds ? Math.round(audio.asset.durationSeconds * 1000) : undefined,
+          startMs: cursor, endMs: cursor + durationMs, sourceVideoDurationMs, sourceAudioDurationMs: audioDurationMs(audio.asset),
           trimInMs: 0, trimOutMs: 0, transitionType: 'cut', transitionDurationMs: 0, volume: 1, muted: false,
           videoAudioPolicy: 'discard', dialogueRequired: !!shot.dialogue?.trim(), createdAt: now, updatedAt: now,
         }); cursor += durationMs;
@@ -57,7 +68,7 @@ export class EpisodeAssemblyService {
     draft.inputHash = createHash('sha256').update(stableExportSerialize({ items: items.map(({ id, assemblyId: ignoredAssemblyId, createdAt, updatedAt, ...item }) => { void id; void ignoredAssemblyId; void createdAt; void updatedAt; return item; }), captionTrackId: draft.captionTrackId, preset: preset.id })).digest('hex');
     const duplicate = existing.find((assembly) => assembly.inputHash === draft.inputHash && assembly.status !== 'rejected');
     if (duplicate) return duplicate;
-    draft.validationIssues = validateAssemblyTimeline(draft, { assets, captionTrack: caption });
+    draft.validationIssues = validateAssemblyTimeline(draft, { assets, captionTrack: caption, sourcePolicy: this.loadSourcePolicy() });
     draft.validationPassed = !draft.validationIssues.some((issue) => issue.severity === 'error');
     draft.status = draft.validationPassed ? 'validated' : 'draft'; draft.validatedAt = now;
     const created = await this.repository.createEpisodeAssembly(draft);
@@ -70,7 +81,7 @@ export class EpisodeAssemblyService {
     const assets = new Map<string, GeneratedAsset>();
     for (const item of assembly.items) for (const assetId of [item.videoAssetId, item.audioAssetId]) if (assetId) { const asset = await this.repository.getGeneratedAsset(seriesId, episodeId, item.sceneId, item.shotId, assetId); if (asset) assets.set(asset.id, asset); }
     const caption = assembly.captionTrackId ? await this.repository.getCaptionTrack(seriesId, episodeId, assembly.captionTrackId) : undefined;
-    const validationIssues = validateAssemblyTimeline(assembly, { assets, captionTrack: caption }); const validationPassed = !validationIssues.some((issue) => issue.severity === 'error'); const now = this.now();
+    const validationIssues = validateAssemblyTimeline(assembly, { assets, captionTrack: caption, sourcePolicy: this.loadSourcePolicy() }); const validationPassed = !validationIssues.some((issue) => issue.severity === 'error'); const now = this.now();
     const updated = await this.repository.updateEpisodeAssembly({ ...assembly, validationIssues, validationPassed, validatedAt: now, status: assembly.status === 'approved' ? 'approved' : validationPassed ? 'validated' : 'draft', updatedAt: now });
     this.logger.write({ operation: 'validate', seriesId, episodeId, assemblyId, assemblyVersion: assembly.version, preset: assembly.exportPreset, status: validationPassed ? 'validated' : undefined, durationMs: Date.now() - started }); return updated;
   }

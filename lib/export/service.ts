@@ -12,6 +12,7 @@ import { normalizeExportError } from './errors';
 import { consoleExportLogger, silentExportLogger, type ExportLogger } from './logging';
 import { getExportPreset } from './presets';
 import { ExportEngineRegistry } from './registry';
+import { generatedMediaSourcePolicy } from './source-safety';
 
 interface EpisodeExportServiceOptions { registry?: ExportEngineRegistry; loadConfig?: () => ExportConfig; logger?: ExportLogger; now?: () => Date }
 
@@ -23,8 +24,9 @@ export class EpisodeExportService {
   private readonly logger: ExportLogger;
   private readonly now: () => Date;
   constructor(private readonly repository: PersistenceRepository, options: EpisodeExportServiceOptions = {}) {
-    this.production = new ProductionService(repository); this.assemblies = new EpisodeAssemblyService(repository);
-    this.registry = options.registry || new ExportEngineRegistry(); this.configLoader = options.loadConfig || (() => loadExportConfig());
+    this.production = new ProductionService(repository); this.configLoader = options.loadConfig || (() => loadExportConfig());
+    this.assemblies = new EpisodeAssemblyService(repository, { loadSourcePolicy: () => generatedMediaSourcePolicy(this.configLoader()) });
+    this.registry = options.registry || new ExportEngineRegistry();
     this.logger = options.logger || (process.env.NODE_ENV === 'test' ? silentExportLogger : consoleExportLogger); this.now = options.now || (() => new Date());
   }
 

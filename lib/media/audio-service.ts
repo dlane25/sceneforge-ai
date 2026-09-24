@@ -230,13 +230,18 @@ export class AudioGenerationService {
     const prior = audioAssets.find((asset) => asset.generationJobId === job.id);
     const version = audioAssets.reduce((maximum, asset) => Math.max(maximum, asset.version), 0) + 1;
     const latest = [...audioAssets].sort((a, b) => b.version - a.version)[0];
+    const durationSource = status.output.metadata.durationSource;
+    const generationParameters = {
+      ...job.generationParameters,
+      ...(durationSource === 'mp3-frame-scan' ? { mediaDurationSource: durationSource } : {}),
+    };
     const asset = prior || await this.repository.createGeneratedAsset({
       id: `asset_${job.id}`, generationJobId: job.id, seriesId: job.seriesId, episodeId: job.episodeId, sceneId: job.sceneId, shotId: job.shotId,
       assetType: 'audio', uri: status.output.uri, storageUri: status.output.storageUri, mimeType: status.output.mimeType, width: 0, height: 0,
       durationSeconds: status.output.durationSeconds || job.durationSeconds, fileSize: status.output.fileSize, provider: job.provider, providerJobId: job.providerJobId,
       providerModel: job.providerModel, providerVoiceId: job.providerVoiceId, characterId: job.characterId, language: job.language, locale: job.locale,
       sourceTextSnapshot: job.promptSnapshot, codec: status.output.codec, sampleRate: status.output.sampleRate, bitrate: status.output.bitrate, channels: status.output.channels,
-      fingerprint: job.inputHash, checksum: status.output.checksum, generationParameters: job.generationParameters, promptSnapshot: job.promptSnapshot,
+      fingerprint: job.inputHash, checksum: status.output.checksum, generationParameters, promptSnapshot: job.promptSnapshot,
       costMetadata: { estimatedCost: job.estimatedCost, actualCost: status.actualCost ?? job.actualCost, currency: 'USD' }, version, parentAssetId: latest?.id,
       preferred: false, reviewStatus: 'pending', createdAt: now, updatedAt: now,
     });

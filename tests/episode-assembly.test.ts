@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AuthenticatedUser } from '@/lib/auth';
 import { EpisodeAssemblyService, validateAssemblyTimeline } from '@/lib/assembly';
+import { generatedMediaSourcePolicy } from '@/lib/export/source-safety';
 import { InMemoryPersistenceRepository } from '@/lib/repositories';
 import { ProductionService } from '@/lib/series';
 import type { CaptionTrack, EpisodeAssembly, GeneratedAsset } from '@/types';
@@ -36,6 +37,17 @@ async function setup(options: { missingSecondVideo?: boolean; missingAudio?: boo
   return { repository, production, service: new EpisodeAssemblyService(repository), series, episode, sceneOne, sceneTwo, shotOne, shotTwo, firstVideo, laterVideo, caption };
 }
 
+async function selectedAssets(repository: InMemoryPersistenceRepository, assembly: EpisodeAssembly): Promise<Map<string, GeneratedAsset>> {
+  const values = new Map<string, GeneratedAsset>();
+  for (const item of assembly.items) for (const id of [item.videoAssetId, item.audioAssetId]) if (id) {
+    const value = await repository.getGeneratedAsset(assembly.seriesId, assembly.episodeId, item.sceneId, item.shotId, id);
+    if (value) values.set(id, value);
+  }
+  return values;
+}
+
+const trustedGcsPolicy = generatedMediaSourcePolicy({ engine: 'ffmpeg-local', mediaStorageUri: 'gs://test-bucket/sceneforge' }, true);
+
 describe('episode assembly', () => {
   it('orders canonical shots and deterministically selects approved preferred media', async () => {
     const { service, series, episode, sceneOne, sceneTwo, shotOne, shotTwo, firstVideo, caption } = await setup();
@@ -63,6 +75,66 @@ describe('episode assembly', () => {
     expect(validateAssemblyTimeline(broken, { assets, captionTrack: lateCaption }).map((issue) => issue.code)).toEqual(expect.arrayContaining(['INVALID_TRIM', 'TIMELINE_OVERLAP', 'CAPTION_OUT_OF_RANGE']));
     broken.items[1].startMs = 4500; broken.items[1].endMs = 7500; broken.timelineDurationMs = 7500;
     expect(validateAssemblyTimeline(broken, { assets, captionTrack: caption }).map((issue) => issue.code)).toContain('TIMELINE_GAP');
+  });
+
+  it('accepts approved SceneForge-managed GCS video and Google TTS audio inside the configured root', async () => {
+    const { service, repository, series, episode, caption } = await setup();
+    const assembly = await service.build(owner, series.id, episode.id);
+    const assets = await selectedAssets(repository, assembly);
+    const videoId = assembly.items[0].videoAssetId!;
+    const audioId = assembly.items[0].audioAssetId!;
+    assets.set(videoId, { ...assets.get(videoId)!, provider: 'vertex-video', uri: 'gs://test-bucket/sceneforge/video/clip.mp4', storageUri: 'gs://test-bucket/sceneforge/video/clip.mp4' });
+    assets.set(audioId, { ...assets.get(audioId)!, provider: 'google-cloud-tts', uri: 'gs://test-bucket/sceneforge/audio/dialogue.mp3', storageUri: 'gs://test-bucket/sceneforge/audio/dialogue.mp3' });
+    expect(validateAssemblyTimeline(assembly, { assets, captionTrack: caption, sourcePolicy: trustedGcsPolicy }).map((issue) => issue.code)).not.toContain('UNSAFE_SOURCE');
+  });
+
+  it('rejects out-of-prefix, different-bucket, malformed, and unapproved GCS assets', async () => {
+    const { service, repository, series, episode, caption } = await setup();
+    const assembly = await service.build(owner, series.id, episode.id);
+    const baseline = await selectedAssets(repository, assembly);
+    const videoId = assembly.items[0].videoAssetId!;
+    for (const uri of ['gs://test-bucket/other/clip.mp4', 'gs://other-bucket/sceneforge/clip.mp4', 'gs://test-bucket/sceneforge/../clip.mp4']) {
+      const assets = new Map(baseline);
+      assets.set(videoId, { ...assets.get(videoId)!, uri, storageUri: uri });
+      expect(validateAssemblyTimeline(assembly, { assets, captionTrack: caption, sourcePolicy: trustedGcsPolicy }).map((issue) => issue.code)).toContain('UNSAFE_SOURCE');
+    }
+    const assets = new Map(baseline);
+    assets.set(videoId, { ...assets.get(videoId)!, uri: 'gs://test-bucket/sceneforge/video/clip.mp4', storageUri: 'gs://test-bucket/sceneforge/video/clip.mp4', reviewStatus: 'pending' });
+    const codes = validateAssemblyTimeline(assembly, { assets, captionTrack: caption, sourcePolicy: trustedGcsPolicy }).map((issue) => issue.code);
+    expect(codes).toEqual(expect.arrayContaining(['REJECTED_ASSET', 'UNSAFE_SOURCE']));
+    assets.set(videoId, { ...assets.get(videoId)!, reviewStatus: 'approved' });
+    expect(validateAssemblyTimeline(assembly, { assets, captionTrack: caption, sourcePolicy: generatedMediaSourcePolicy({ engine: 'mock', mediaStorageUri: 'gs://test-bucket/sceneforge' }, true) }).map((issue) => issue.code)).toContain('UNSAFE_SOURCE');
+  });
+
+  it('keeps the existing public HTTPS policy while rejecting private HTTPS and unsupported sources', async () => {
+    const { service, repository, series, episode, caption } = await setup();
+    const assembly = await service.build(owner, series.id, episode.id);
+    const baseline = await selectedAssets(repository, assembly);
+    const videoId = assembly.items[0].videoAssetId!;
+    const publicAssets = new Map(baseline);
+    publicAssets.set(videoId, { ...publicAssets.get(videoId)!, uri: 'https://media.example.test/clip.mp4', storageUri: undefined });
+    expect(validateAssemblyTimeline(assembly, { assets: publicAssets, captionTrack: caption, sourcePolicy: trustedGcsPolicy }).map((issue) => issue.code)).not.toContain('UNSAFE_SOURCE');
+    for (const uri of ['https://127.0.0.1/clip.mp4', 'file:///tmp/clip.mp4']) {
+      const assets = new Map(baseline);
+      assets.set(videoId, { ...assets.get(videoId)!, uri, storageUri: undefined });
+      expect(validateAssemblyTimeline(assembly, { assets, captionTrack: caption, sourcePolicy: trustedGcsPolicy }).map((issue) => issue.code)).toContain('UNSAFE_SOURCE');
+    }
+  });
+
+  it('uses measured or legacy media metadata and preserves genuine audio-over-video blockers', async () => {
+    const context = await setup();
+    const legacy = await context.repository.getGeneratedAsset(context.series.id, context.episode.id, context.sceneOne.id, context.shotOne.id, 'audio-one');
+    await context.repository.updateGeneratedAsset({ ...legacy!, provider: 'google-cloud-tts', durationSeconds: 5, fileSize: 12_000, codec: 'mp3', bitrate: 32_000 });
+    const assembly = await context.service.build(owner, context.series.id, context.episode.id);
+    expect(assembly.items[0].sourceAudioDurationMs).toBe(3_000);
+    expect(assembly.validationIssues.map((issue) => issue.code)).not.toContain('AUDIO_EXCEEDS_CLIP');
+
+    const assets = await selectedAssets(context.repository, assembly);
+    const fitting: EpisodeAssembly = structuredClone(assembly);
+    fitting.items[0].sourceAudioDurationMs = 4_100;
+    expect(validateAssemblyTimeline(fitting, { assets, captionTrack: context.caption }).map((issue) => issue.code)).not.toContain('AUDIO_EXCEEDS_CLIP');
+    fitting.items[0].sourceAudioDurationMs = 4_101;
+    expect(validateAssemblyTimeline(fitting, { assets, captionTrack: context.caption }).map((issue) => issue.code)).toContain('AUDIO_EXCEEDS_CLIP');
   });
 
   it('preserves assembly versions, review decisions, and preferred history', async () => {

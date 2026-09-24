@@ -3,8 +3,34 @@ import 'server-only';
 import path from 'node:path';
 import { isIP } from 'node:net';
 import { exportError } from './errors';
+import type { GeneratedAsset } from '@/types';
+import { assertWithinGcsRoot, canonicalGcsUri, parseGcsUri, type GcsLocation } from '@/lib/storage/gcs';
+import type { ExportConfig } from './config';
 
 export type MediaSourceKind = 'managed' | 'https' | 'mock';
+
+export interface GeneratedMediaSourcePolicy {
+  allowMock: boolean;
+  authorizedGcsRoot?: GcsLocation;
+  gcsMaterializationEnabled: boolean;
+}
+
+export function generatedMediaSourcePolicy(config: Pick<ExportConfig, 'engine' | 'mediaStorageUri'>, allowMock = process.env.NODE_ENV === 'test'): GeneratedMediaSourcePolicy {
+  const authorizedGcsRoot = config.mediaStorageUri ? parseGcsUri(config.mediaStorageUri.replace(/\/+$/, '')) : undefined;
+  return { allowMock, authorizedGcsRoot, gcsMaterializationEnabled: config.engine === 'ffmpeg-local' && Boolean(authorizedGcsRoot) };
+}
+
+export function validateGeneratedAssetSource(asset: GeneratedAsset, policy: GeneratedMediaSourcePolicy): MediaSourceKind | 'gcs' {
+  const source = asset.storageUri || asset.uri;
+  if (!source.startsWith('gs://')) return validateMediaSource(source, policy.allowMock);
+  if (asset.reviewStatus !== 'approved' || !asset.generationJobId.trim() || !asset.storageUri || !policy.authorizedGcsRoot || !policy.gcsMaterializationEnabled) throw exportError('unsafe_source', 'Generated Cloud Storage source is not approved for materialization');
+  const location = parseGcsUri(asset.storageUri);
+  if (canonicalGcsUri(location) !== asset.storageUri || location.object === policy.authorizedGcsRoot.object) throw exportError('unsafe_source', 'Generated Cloud Storage source is not canonical');
+  assertWithinGcsRoot(location, policy.authorizedGcsRoot);
+  const object = location.object.toLowerCase();
+  if ((asset.assetType === 'video-clip' && !object.endsWith('.mp4')) || (asset.assetType === 'audio' && !object.endsWith('.mp3')) || !['video-clip', 'audio'].includes(asset.assetType)) throw exportError('unsafe_source', 'Generated Cloud Storage object type is not permitted for export');
+  return 'gcs';
+}
 
 export function validateMediaSource(uri: string, allowMock: boolean): MediaSourceKind {
   let parsed: URL;

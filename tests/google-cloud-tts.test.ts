@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GoogleCloudTtsProvider } from '@/lib/media/adapters/google-cloud-tts-provider';
-import { decodeMp3Base64, ProductionGoogleCloudTtsTransport, validateChirpVoice } from '@/lib/media/providers/google-tts-transport';
+import { decodeMp3Base64, inspectMp3, ProductionGoogleCloudTtsTransport, validateChirpVoice } from '@/lib/media/providers/google-tts-transport';
 import type { AccessTokenProvider, ProviderHttpClient } from '@/lib/media/providers/google-transport';
 import type { PrivateMediaObjectStore } from '@/lib/storage/google-cloud-media-storage';
 
 const voice = 'en-US-Chirp3-HD-TestVoice';
-const mp3 = new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00]);
+
+function mp3Frames(count = 115): Uint8Array {
+  const frameLength = 104;
+  const bytes = new Uint8Array(frameLength * count);
+  for (let offset = 0; offset < bytes.byteLength; offset += frameLength) bytes.set([0xff, 0xfb, 0x10, 0x00], offset);
+  return bytes;
+}
+
+const mp3 = mp3Frames();
 
 function fakes(body: unknown = { audioContent: Buffer.from(mp3).toString('base64') }) {
   const token: AccessTokenProvider = { getAccessToken: vi.fn().mockResolvedValue('test-adc-token') };
@@ -35,7 +43,7 @@ describe('Google Cloud TTS Chirp 3 HD transport', () => {
     expect(String(init.body)).not.toMatch(/speakingRate|pace|stability|similarity/i);
     expect(storage.uploadGeneratedAudio).toHaveBeenCalledWith('audio_job_1', expect.any(Uint8Array));
     expect(Array.from(vi.mocked(storage.uploadGeneratedAudio).mock.calls[0][1])).toEqual(Array.from(mp3));
-    expect(result.output).toMatchObject({ uri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_job_1/v1.mp3', storageUri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_job_1/v1.mp3', mimeType: 'audio/mpeg', codec: 'mp3' });
+    expect(result.output).toMatchObject({ uri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_job_1/v1.mp3', storageUri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_job_1/v1.mp3', mimeType: 'audio/mpeg', codec: 'mp3', durationSeconds: expect.closeTo(3.004, 3), sampleRate: 44_100, metadata: { durationSource: 'mp3-frame-scan' } });
     expect(result.output?.uri).not.toMatch(/^data:|^https:/);
   });
 
@@ -54,6 +62,11 @@ describe('Google Cloud TTS Chirp 3 HD transport', () => {
       await expect(new ProductionGoogleCloudTtsTransport(storage, token, http).submitSpeechGeneration(request())).rejects.toThrow();
       expect(storage.uploadGeneratedAudio).not.toHaveBeenCalled();
     }
+  });
+
+  it('derives deterministic playback duration from MPEG frames instead of dialogue estimates', () => {
+    expect(inspectMp3(mp3Frames(100))).toMatchObject({ durationSeconds: expect.closeTo(2.612, 3), sampleRate: 44_100, bitrate: expect.any(Number) });
+    expect(() => inspectMp3(new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))).toThrow('invalid MP3');
   });
 
   it('normalizes synthesis and upload failures without persisting inline audio', async () => {

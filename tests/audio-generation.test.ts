@@ -72,7 +72,7 @@ function googleTtsService(repository: InMemoryPersistenceRepository) {
     void request;
     return {
       jobId: 'fake-google-tts-job', status: 'succeeded' as const,
-      output: { uri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_shot_1_1/v1.mp3', storageUri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_shot_1_1/v1.mp3', mimeType: 'audio/mpeg', width: 0, height: 0, codec: 'mp3', metadata: { storage: 'private-gcs' } },
+      output: { uri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_shot_1_1/v1.mp3', storageUri: 'gs://test-bucket/sceneforge/audio/google-cloud-tts/audio_shot_1_1/v1.mp3', mimeType: 'audio/mpeg', width: 0, height: 0, durationSeconds: 3.004, fileSize: 11_960, codec: 'mp3', sampleRate: 44_100, bitrate: 31_850, channels: 1, metadata: { storage: 'private-gcs', durationSource: 'mp3-frame-scan' } },
       metadata: { synchronous: true },
     };
   });
@@ -198,7 +198,7 @@ describe('audio generation lifecycle', () => {
     expect(submitSpeechGeneration.mock.calls[0][0]).toMatchObject({ operationId: prepared.id, outputFormat: 'MP3' });
     expect(submitSpeechGeneration.mock.calls[0][0]).not.toHaveProperty('stability');
     const [asset] = await context.repository.listGeneratedAssets(...ids);
-    expect(asset).toMatchObject({ uri: expect.stringMatching(/^gs:\/\/test-bucket\/sceneforge\//), storageUri: expect.stringMatching(/^gs:\/\/test-bucket\/sceneforge\//), reviewStatus: 'pending' });
+    expect(asset).toMatchObject({ uri: expect.stringMatching(/^gs:\/\/test-bucket\/sceneforge\//), storageUri: expect.stringMatching(/^gs:\/\/test-bucket\/sceneforge\//), durationSeconds: 3.004, generationParameters: { mediaDurationSource: 'mp3-frame-scan' }, reviewStatus: 'pending' });
   });
 
   it('emits structured audio lifecycle metadata without dialogue or credentials', async () => {

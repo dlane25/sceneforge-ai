@@ -7,10 +7,11 @@ import { ProductionService } from '@/lib/series';
 import type { EpisodeAssembly, EpisodeExportJob, GenerationJob, ProductionReadinessReport, ReadinessCategory, ReadinessCheck, RightsAttestation } from '@/types';
 import { assessProductionConfiguration, type ConfigurationAssessmentOptions } from './config';
 import { isSafeDeliveryUri } from './uri-safety';
-import { validateMediaSource } from '@/lib/export/source-safety';
+import { loadExportConfig } from '@/lib/export/config';
+import { generatedMediaSourcePolicy, validateGeneratedAssetSource, type GeneratedMediaSourcePolicy } from '@/lib/export/source-safety';
 import { consoleObservabilitySink, silentObservabilitySink, type ObservabilitySink } from '@/lib/observability';
 
-interface ReadinessOptions { now?: () => Date; allowMockUris?: boolean; logger?: ObservabilitySink }
+interface ReadinessOptions { now?: () => Date; allowMockUris?: boolean; logger?: ObservabilitySink; loadSourcePolicy?: () => GeneratedMediaSourcePolicy }
 
 function summarize(id: string, scope: 'series' | 'episode', checks: ReadinessCheck[], now: Date, seriesId: string, episodeId?: string): ProductionReadinessReport {
   const blockingCount = checks.filter((check) => check.status === 'fail' && check.blocking).length;
@@ -22,7 +23,8 @@ export class ProductionReadinessService {
   private readonly now: () => Date;
   private readonly allowMockUris: boolean;
   private readonly logger: ObservabilitySink;
-  constructor(private readonly repository: PersistenceRepository, options: ReadinessOptions = {}) { this.production = new ProductionService(repository); this.now = options.now || (() => new Date()); this.allowMockUris = options.allowMockUris ?? process.env.NODE_ENV === 'test'; this.logger = options.logger || (process.env.NODE_ENV === 'test' ? silentObservabilitySink : consoleObservabilitySink); }
+  private readonly loadSourcePolicy: () => GeneratedMediaSourcePolicy;
+  constructor(private readonly repository: PersistenceRepository, options: ReadinessOptions = {}) { this.production = new ProductionService(repository); this.now = options.now || (() => new Date()); this.allowMockUris = options.allowMockUris ?? process.env.NODE_ENV === 'test'; this.logger = options.logger || (process.env.NODE_ENV === 'test' ? silentObservabilitySink : consoleObservabilitySink); this.loadSourcePolicy = options.loadSourcePolicy || (() => generatedMediaSourcePolicy(loadExportConfig(), this.allowMockUris)); }
 
   application(env: Record<string, string | undefined> = process.env, options: ConfigurationAssessmentOptions = {}): ProductionReadinessReport { const value = assessProductionConfiguration(env, { ...options, now: options.now || this.now() }); if (!value.ready) this.logger.write({ event: 'configuration_failure', blockingCount: value.blockingCount, warningCount: value.warningCount, status: 'unready' }); return value; }
 
@@ -50,7 +52,7 @@ export class ProductionReadinessService {
         const assets = await this.repository.listGeneratedAssets(seriesId, episodeId, scene.id, shot.id); const preferredVideo = assets.find((asset) => asset.assetType === 'video-clip' && asset.preferred); const preferredAudio = assets.find((asset) => asset.assetType === 'audio' && asset.preferred); const usableVideo = preferredVideo?.reviewStatus === 'approved'; const dialogueRequired = Boolean(shot.dialogue?.trim()); const usableAudio = !dialogueRequired || preferredAudio?.reviewStatus === 'approved';
         add(`shot.${shot.id}.video`, 'episode-content', usableVideo, usableVideo ? 'Preferred video is approved.' : preferredVideo?.reviewStatus === 'rejected' ? 'The preferred video is rejected.' : 'An approved preferred video is missing.', 'Approve and mark the final video preferred.', 'shot', shot.id);
         add(`shot.${shot.id}.audio`, 'episode-content', usableAudio, usableAudio ? dialogueRequired ? 'Preferred dialogue audio is approved.' : 'Dialogue audio is not required.' : preferredAudio?.reviewStatus === 'rejected' ? 'The preferred dialogue audio is rejected.' : 'Approved preferred dialogue audio is missing.', 'Generate, approve, and prefer dialogue audio.', 'shot', shot.id);
-        for (const asset of assets.filter((value) => value.preferred)) { let sourceSafe = true; try { validateMediaSource(asset.storageUri || asset.uri, this.allowMockUris); } catch { sourceSafe = false; } add(`asset.${asset.id}.source`, 'storage', sourceSafe, sourceSafe ? 'Preferred asset source is safe.' : 'Preferred asset source is unsafe.', 'Move the asset into managed storage or use an approved public HTTPS reference.', 'asset', asset.id); }
+        for (const asset of assets.filter((value) => value.preferred)) { let sourceSafe = true; try { validateGeneratedAssetSource(asset, this.loadSourcePolicy()); } catch { sourceSafe = false; } add(`asset.${asset.id}.source`, 'storage', sourceSafe, sourceSafe ? 'Preferred asset source is safe.' : 'Preferred asset source is unsafe.', 'Move the asset into managed storage or use an approved public HTTPS reference.', 'asset', asset.id); }
         const violations = checker.checkShot(shot, episode.episodeNumber, scene.sceneNumber, facts); blockingContinuity += violations.filter((value) => value.severity === 'high' || value.severity === 'critical').length; warningContinuity += violations.filter((value) => value.severity === 'low' || value.severity === 'medium').length;
         const jobs = await this.repository.listGenerationJobs(seriesId, episodeId, scene.id, shot.id); allJobs.push(...jobs);
         const unresolvedFailed = jobs.filter((job) => job.status === 'failed' && !jobs.some((candidate) => candidate.generationType === job.generationType && candidate.status === 'completed' && candidate.createdAt >= job.createdAt));
